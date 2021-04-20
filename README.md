@@ -10,7 +10,7 @@ In this Multi-SEM, we implement 4 methods to compute the Hessian kerenls:
 3. The full wavefield storage method (for elastic and anelastic case):
 4. A finite-difference approximation (for elastic and anelastic case): 
 
-With importing two models (GLL or ASCII format), the Multi-SEM can compute these kernels simultaneously with only requiring about a 2~2.5 computational cost required in comparison to the computation of Frechet kernel alone:
+With importing two models (GLL or ASCII format), the Multi-SEM can compute the following kernels simultaneously with only requiring about a 2~2.5 computational costs in comparison to the computation of Frechet kernel alone:
 1) the Frechet kernels for m1 and m2
 2) the finite-difference approximation based on g(m1) and g(m2)
 3) the approximate Hessian kernel (to be used with Gaussian-Newton FWI)
