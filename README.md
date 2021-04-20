@@ -16,7 +16,7 @@ With importing two models (GLL or ASCII format), the Multi-SEM can compute the f
 3) the approximate Hessian kernel (to be used with Gaussian-Newton FWI)
 4) the full Hessian kernel (to be used with Newton FWI)
 
-The Multi-SEM currently supports computing the Hessian kernel using two models, and the extension for models > 3 is straightforward, where one can compute the forward and adjoint fields for multiple stets of models simultaneously. 
+The Multi-SEM currently supports computing the Hessian kernel using two models, and the extension for models > 3 is straightforward, where one can compute the forward and adjoint fields for multiple sets of models simultaneously. 
 
 For the wave simulation, we use the spectral-element and adjoint methods (Tromp et al., 2005). The same ideas can be used for other wave-equation solvers as well. 
 
