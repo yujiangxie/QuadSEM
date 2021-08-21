@@ -7,3 +7,6 @@ The QuadSEM is a development of the Specfem2D, accounting for two input models m
 For better usage, we use the framework of the Specfem2D that many people are familiar with, where the user just needs to set four parameters in the Par_file for the forward and adjoint simulation. The usage of the other parameters is the same as that of the Specfem2D.  
 
 All codes are given in QuadSEM2D_elastic.zip
+
+Reference:
+Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu, Dirk Gajewski; On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations. Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200410
