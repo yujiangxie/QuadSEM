@@ -1,4 +1,4 @@
-# ======================== QuadSEM ====================
+# ====== QuadSEM ======
 
 Quad Spectral-Element Method (QuadSEM) is a recently developed solver designed to simultaneously solve four elastic wave equations for two models, where each wave equation is solved by the classical SEM using the SPECFEM2D package (https://geodynamics.org/cig/software/specfem2d/). The QuadSEM is initially designed to compute the full Hessian kernels or full Hessian vector products on the fly using the exact forward and adjoint fields on the fly, substantially reducing the disk space and I/O requirements for storing and transmitting the forward and adjoint fields for the full Hessian kernel calculations due to the on-the-fly feature. The QuadSEM can be used to simultaneously compute the Frechet and full Hessian kernels requiring only about a 2-fold computational cost in comparison to the computation of the Frechet kernels alone.
 
@@ -11,6 +11,6 @@ All codes are given in QuadSEM2D_elastic.zip
 Reference:
 Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu, Dirk Gajewski; On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations. Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200410
 
-========================= QuadSEM-Q ==================
+# ====== QuadSEM-Q ======
 The visco-elastic version will be uploaded when the paper is ready for acceptance. 
 
