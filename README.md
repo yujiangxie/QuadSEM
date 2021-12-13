@@ -8,7 +8,7 @@ The QuadSEM can be written in a different computer language or can be designed a
 
 All codes are given in QuadSEM2D_elastic.zip.
 
-Compared to the Specfem2D, which uses one model (e.g., vp, vs, and rho) for the simulations, while in the QuadSEM, it uses two models (e.g., vp1,vp2,vs1,vs2,rho1,rho2, that is each GLL point has two values, instead of one).
+Compared to the Specfem2D, which uses one model (e.g., vp, vs, and rho) for the simulations, while in the QuadSEM, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, that is each GLL point has two values, instead of one).
 
 
 Reference:
