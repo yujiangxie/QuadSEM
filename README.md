@@ -4,7 +4,7 @@ The Quad Spectral-Element Method (QuadSEM) is initially designed to compute the 
 
 Comparison to conventional wave equation solvers, the QuadSEM is designed for two input models m1 and m2, so that people can compute two sets of forward fields s(m1) and s(m2) simultaneously in the forward simulation, as well as can compute four sets of wave fields simultaneously in the adjoint simulation: that is two (reversed) forward fields s(m1) and s(m2) and two adjoint fields s*(m1) and s*(m2). These fields are simultaneously computed on the fly so that the full Hessian kernels can be computed on the fly as well without the need for the entire wavefield storage. Only the boundary fields and the last snapshot of the forward fields are needed in the elastic case.
 
-Compared to the Specfem2D, which uses one model (e.g., vp, vs, and rho) for the simulations, while in the QuadSEM, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, that is each GLL point has two values, instead of one).
+Compared to the Specfem2D, which uses one model (e.g., vp, vs, and rho) for the simulations, while in the QuadSEM, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, that is each GLL point has two values, instead of one. This can avoid the costing I/O communications between these fields in comparison to running the single Specfem2D twice in a parallel version.
 
 The QuadSEM can be written in a different computer language or can be designed as new software. However, for easy using the codes, we use the framework of the Specfem2D that many people are familiar with, where one just needs to set four parameters in the Par_file for the new forward and new adjoint simulation. The use of the other input parameters is the same as that of the Specfem2D. 
 
@@ -16,5 +16,5 @@ Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu, Dirk Gajewski; On
 # ====== QuadSEM-Q ======
 The visco-elastic version will be uploaded when the paper is ready for acceptance. 
 
-Compared to the Specfem2D, which uses one model (e.g., vp, vs, rho, Qk, Qu) for the simulations, while in the QuadSEM-Q, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, Qk1,Qk2, Qu1,Qu2, that is each GLL point has two values, instead of one).
+Compared to the Specfem2D, which uses one model (e.g., vp, vs, rho, Qk, Qu) for the simulations, while in the QuadSEM-Q, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, Qk1,Qk2, Qu1,Qu2, that is each GLL point has two values, instead of one. This can avoid the costing I/O communications between these fields in comparison to running the single Specfem2D twice in a parallel version.
 
