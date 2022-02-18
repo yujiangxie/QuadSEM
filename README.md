@@ -14,5 +14,5 @@ Reference:
 Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu, Dirk Gajewski; On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations. Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200410
 
 # ====== QuadSEM-Q ======
-Compared to the Specfem2D, which uses one model (e.g., one vp, vs, rho, Qk, and Qu value for each GLL point) for the simulations, while in the QuadSEM-Q, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, Qk1,Qk2, Qu1,Qu2, that is each GLL point has two values, instead of one). This can avoid the costing I/O communications between these fields in comparison to running the single Specfem2D twice parallelly.
+Compared to the Specfem2D, which uses one model (e.g., one vp, vs, rho, Qk, and Qu value for each GLL point) for the simulations, while in the QuadSEM-Q, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, Qk1,Qk2, Qu1,Qu2, that is each GLL point has two values, instead of one). This can avoid a hugh wavefield storage and costing I/O communications between these fields in comparison to running the single Specfem2D twice parallelly.
 
