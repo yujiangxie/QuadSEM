@@ -8,7 +8,7 @@ Compared to the Specfem2D, which uses one model (e.g., one vp, vs, and rho value
 
 The QuadSEM can be written in a different computer language or can be designed as new software. However, for easy using the codes, we use the framework of the Specfem2D that many people are familiar with, where one just needs to set four parameters in the Par_file for the new forward and new adjoint simulation. The use of the other input parameters is the same as that of the Specfem2D. 
 
-All the elastic codes are given in QuadSEM2D_elastic.zip.
+Elastic codes are given in QuadSEM2D_elastic.zip.
 
 
 # ====== QuadSEM-Q ======
