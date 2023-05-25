@@ -1,6 +1,6 @@
 # ====== QuadSEM ======
 
-The Quad Spectral-Element Method (QuadSEM) is primarily designed to compute the full Hessian kernels or compute full Hessian vector products on the fly using the exact forward and adjoint fields. This approach significantly reduces the disk space and I/O requirements, often by more than three orders of magnitude or more depending on the time steps. By leveraging the on-the-fly feature, storing and transmitting the forward and adjoint fields for full Hessian kernel calculations is largely avoided. QuadSEM enables the simultaneous computation of both the Frechet and full Hessian kernels on the fly, with a computational cost approximately twice that of computing the Frechet kernels alone
+The Quad Spectral-Element Method (QuadSEM) is primarily designed to compute the full Hessian kernels on the fly using the exact forward and adjoint fields. This approach significantly reduces the disk space and I/O requirements, often by more than three orders of magnitude or more depending on the time steps. By leveraging the on-the-fly feature, storing and transmitting the forward and adjoint fields for full Hessian kernel calculations is largely avoided. QuadSEM enables the simultaneous computation of both the Frechet and full Hessian kernels on the fly, with a computational cost approximately twice that of computing the Frechet kernels alone
 
 Hessian kernels have two primary applications:
 In inversion, they can enhance the convergence rate and mitigate trade-offs between inverted multi-parameters.
