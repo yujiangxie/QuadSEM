@@ -21,12 +21,6 @@ Compared to SPECFEM2D, which employs a single model (e.g., vp, vs, rho, Qk, and 
 Please feel free to contact the author for further inquiries and to obtain the codes. The codes will be uploaded at a later time, along with the accompanying manual.
 
 
-------
-Yujiang Xie,
-Ocean and Earth Science,
-University of Southampton, UK
-
-
 References:
 1. Yujiang Xie, Catherine A. Rychert and Nicholas Harmon. Elastic and anelastic adjoint tomography with Fréchet and full Hessian kernels, Geophysical Journal International, 234, 1205-1235, 2023, https://doi.org/10.1093/gji/ggad114
 2. Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu and Dirk Gajewski. On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations, Seismological Research Letters 2021,92, 3832-3844, doi: https://doi.org/10.1785/0220200410
