@@ -1,27 +1,33 @@
 # ====== QuadSEM ======
 
-The Quad Spectral-Element Method (QuadSEM) is initially designed to compute the full Hessian kernels or full Hessian vector products on the fly using the exact forward and adjoint fields, which substantially reduces the disk space and I/O requirements (e.g., more than 3 orders of magnitude or more depending on the time steps) to largely avoid storing and transmitting the forward and adjoint fields for the full Hessian kernel calculations due to the on-the-fly feature. The QuadSEM can be used to simultaneously compute the Frechet and full Hessian kernels on the fly requiring only about a 2-fold computational cost in comparison to the computation of the Frechet kernels alone.
+The Quad Spectral-Element Method (QuadSEM) is primarily designed to compute the full Hessian kernels or compute full Hessian vector products on the fly using the exact forward and adjoint fields. This approach significantly reduces the disk space and I/O requirements, often by more than three orders of magnitude or more depending on the time steps. By leveraging the on-the-fly feature, storing and transmitting the forward and adjoint fields for full Hessian kernel calculations is largely avoided. QuadSEM enables the simultaneous computation of both the Frechet and full Hessian kernels on the fly, with a computational cost approximately twice that of computing the Frechet kernels alone
 
-Hessian kernels have two main applications: 
-  1) in inversion, they can improve the convergence rate and reduce the problem of trade-offs among inverted multi-parameters; 
-  2) after inversion, they can be used to analyze the resolution of the inverted model.
+Hessian kernels have two primary applications:
+In inversion, they can enhance the convergence rate and mitigate trade-offs between inverted multi-parameters.
+After inversion, they can be utilized to analyze the resolution of the inverted model.
 
-Comparison to conventional wave equation solvers, the QuadSEM is designed for two input models m1 and m2, so that people can compute two sets of forward fields s(m1) and s(m2) simultaneously in the forward simulation, as well as can compute four sets of wave fields simultaneously in the adjoint simulation: that is two (reversed) forward fields s(m1) and s(m2) and two adjoint fields s*(m1) and s*(m2). These fields are simultaneously computed on the fly so that the full Hessian kernels can be computed on the fly as well without the need for the entire wavefield storage. Only the boundary fields and the last snapshot of the forward fields are needed in the elastic case.
+Compared to conventional wave equation solvers like SPECFEM2D, QuadSEM is specifically designed to accommodate two input models, namely m1 and m2. This allows for the simultaneous computation of two sets of forward fields, s(m1) and s(m2), during the forward simulation, as well as four sets of wave fields during the adjoint simulation. These include two reversed or reconstructed forward fields, s(m1) and s(m2), and two adjoint fields, s*(m1) and s*(m2). These fields are computed on the fly, eliminating the need for extensive wavefield storage. In the elastic case, only the boundary fields and the last snapshot of the forward fields are required.
 
-Compared to the Specfem2D, which uses one model (e.g., one vp, vs, and rho value for each GLL point) for the simulations, the QuadSEM uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2 for each GLL point, that is each GLL point has two values, instead of one). This can avoid the massive costing I/O communications between these fields in comparison to running the single Specfem2D twice in a parallel version.
+In contrast to SPECFEM2D,, which employs a single model (e.g., vp, vs, and rho values) for simulations, QuadSEM utilizes two models (e.g., vp1, vp2, vs1, vs2, rho1, rho2) at each GLL point. This approach significantly reduces the intensive I/O communications between these fields compared to running SPECFEM2D twice in parallel.
 
-The QuadSEM can be written in a different computer language or can be designed as new software. However, for easy using the codes, we use the framework of the Specfem2D that many people are familiar with, where one just needs to set four parameters in the Par_file for the new forward and new adjoint simulation. The use of the other input parameters is the same as that of the Specfem2D. 
+While QuadSEM can be implemented in different computer languages or developed as a standalone software, we have chosen to leverage the SPECFEM2D framework for user convenience. Users only need to set four parameters in the Par_file for the new forward and adjoint simulations. The usage of other input parameters remains consistent with SPECFEM2D.
 
-Elastic codes are given in QuadSEM2D_elastic.zip.
+For the elastic codes, please refer to QuadSEM2D_elastic.zip.
 
 
 # ====== QuadSEM-Q ======
-Compared to the Specfem2D, which uses one model (e.g., one vp, vs, rho, Qk, and Qu value for each GLL point) for the simulations, while in the QuadSEM-Q, it uses two models (e.g., vp1,vp2, vs1,vs2, rho1,rho2, Qk1,Qk2, Qu1,Qu2, that is each GLL point has two values, instead of one). This can avoid a hugh wavefield storage and costing I/O communications between these fields in comparison to running the single Specfem2D twice parallelly. 
+Compared to SPECFEM2D, which employs a single model (e.g., vp, vs, rho, Qk, and Qu values) for each GLL point in the simulations, QuadSEM-Q utilizes two models (e.g., vp1, vp2, vs1, vs2, rho1, rho2, Qk1, Qk2, Qu1, Qu2) at each GLL point. This approach significantly reduces the need for extensive wavefield storage and minimizes the costly I/O communications between these fields, in contrast to running SPECFEM2D twice in parallel.
 
-Welcome to contact the author for the codes.
-The codes will be uploaded later when the manual is ready.
+Please feel free to contact the author for further inquiries and to obtain the codes. The codes will be uploaded at a later time, along with the accompanying manual.
+
+
+------
+Yujiang Xie
+Ocean and Earth Science
+University of Southampton, UK
+
 
 References:
-1. Yujiang Xie, Catherine A. Rychert and Nicholas Harmon. Elastic and anelastic adjoint tomography with Fréchet and full Hessian kernels, Geophysical Journal International, 2023, https://doi.org/10.1093/gji/ggad114
-2. Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu and Dirk Gajewski. On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations, Seismological Research Letters 2021,92,3832-3844, doi: https://doi.org/10.1785/0220200410
+1. Yujiang Xie, Catherine A. Rychert and Nicholas Harmon. Elastic and anelastic adjoint tomography with Fréchet and full Hessian kernels, Geophysical Journal International, 234, 1205-1235, 2023, https://doi.org/10.1093/gji/ggad114
+2. Yujiang Xie, Catherine A. Rychert, Nicholas Harmon, Qinya Liu and Dirk Gajewski. On‐the‐Fly Full Hessian Kernel Calculations Based upon Seismic‐Wave Simulations, Seismological Research Letters 2021,92, 3832-3844, doi: https://doi.org/10.1785/0220200410
 
