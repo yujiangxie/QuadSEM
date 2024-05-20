@@ -16,12 +16,9 @@ For the elastic codes, please refer to QuadSEM2D_elastic.zip.
 
 
 # ====== QuadSEM-Q ======
+Feel free to contact the authors for access to the codes. Anyone who emails the authors can obtain the codes. We are currently working on a project, so the codes will be uploaded once the manual is ready.
+
 Compared to SPECFEM2D, which employs a single model (e.g., vp, vs, rho, Qk, and Qu values) for each GLL point in the simulations, QuadSEM-Q utilizes two models (e.g., vp1, vp2, vs1, vs2, rho1, rho2, Qk1, Qk2, Qu1, Qu2) at each GLL point. This approach significantly reduces the need for extensive wavefield storage and minimizes the costly I/O communications between these fields, in contrast to running SPECFEM2D twice in parallel.
-
-Please feel free to contact the author for further inquiries and to obtain the codes. The codes will be uploaded at a later time, along with the accompanying manual.
-
-
-
 
 References:
 1. Yujiang Xie, Catherine A. Rychert and Nicholas Harmon. Elastic and anelastic adjoint tomography with and full Hessian kernels, Geophysical Journal International, 234, 1205-1235, 2023, https://doi.org/10.1093/gji/ggad114
