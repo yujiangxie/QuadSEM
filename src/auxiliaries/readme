@@ -1,0 +1,4 @@
+
+# Yujiang Xie, Feb. 2020
+# the current code is adj_seismogram.f90 for traveltime adjoint source
+# just changed adj_seismogram_amplitude.f90 to adj_seismogram.f90 for amplitude adjoint source and re make clean and make all 
