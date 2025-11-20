@@ -10,7 +10,7 @@ In contrast to SPECFEM2D,, which employs a single model (e.g., vp, vs, and rho v
 
 While QuadSEM can be implemented in different computer languages or developed as a standalone software, we have chosen to leverage the SPECFEM2D framework for user convenience. Users only need to set four parameters in the Par_file for the new forward and adjoint simulations. The usage of other input parameters remains consistent with SPECFEM2D.
 
-For the elastic codes, please refer to QuadSEM2D_elastic.zip.
+For the elastic codes, please also refer to QuadSEM2D_elastic.zip in the master branch
 
 ====== QuadSEM-Q ======
 
