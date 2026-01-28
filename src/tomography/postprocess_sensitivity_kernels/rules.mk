@@ -30,6 +30,7 @@
 # The full text of the license is available in file "LICENSE".
 #
 #========================================================================
+
 ## compilation directories
 S := ${S_TOP}/src/tomography/postprocess_sensitivity_kernels
 $(tomography/postprocess_sensitivity_kernels_OBJECTS): S := ${S_TOP}/src/tomography/postprocess_sensitivity_kernels
@@ -37,29 +38,23 @@ $(tomography/postprocess_sensitivity_kernels_OBJECTS): S := ${S_TOP}/src/tomogra
 #######################################
 
 tomography/postprocess_sensitivity_kernels_TARGETS = \
-    $E/xcombine_sem \
-    $E/xsmooth_sem \
-    $E/xprecond_sem \
-    $E/xbinary2ascii_sem \
-    $(EMPTY_MACRO)
+	$E/xcombine_sem \
+	$E/xsmooth_sem \
+	$(EMPTY_MACRO)
 
 tomography/postprocess_sensitivity_kernels_OBJECTS = \
-    $(xcombine_sem_OBJECTS) \
-    $(xsmooth_sem_OBJECTS) \
-    $(xprecond_sem_OBJECTS) \
-    $(xbinary2ascii_sem) \
-    $(EMPTY_MACRO)
+	$(xcombine_sem_OBJECTS) \
+	$(xsmooth_sem_OBJECTS) \
+	$(EMPTY_MACRO)
 
 tomography/postprocess_sensitivity_kernels_MODULES = \
-    $(FC_MODDIR)/postprocess_par.$(FC_MODEXT) \
-    $(EMPTY_MACRO)
+	$(FC_MODDIR)/postprocess_par.$(FC_MODEXT) \
+	$(EMPTY_MACRO)
 
 tomography/postprocess_sensitivity_kernels_SHARED_OBJECTS = \
-    $(xcombine_sem_SHARED_OBJECTS) \
-    $(xsmooth_sem_SHARED_OBJECTS) \
-    $(xprecond_sem_SHARED_OBJECTS) \
-    $(xbinary2ascii_sem) \
-    $(EMPTY_MACRO)
+	$(xcombine_sem_SHARED_OBJECTS) \
+	$(xsmooth_sem_SHARED_OBJECTS) \
+	$(EMPTY_MACRO)
 
 
 #######################################
@@ -75,12 +70,6 @@ xcombine_sem: $E/xcombine_sem
 
 smooth_sem: xsmooth_sem
 xsmooth_sem: $E/xsmooth_sem
-
-precond_sem: xprecond_sem
-xprecond_sem: $E/xprecond_sem
-
-binary2ascii_sem: xbinary2ascii_sem
-xbinary2ascii_sem: $E/xbinary2ascii_sem
 
 #######################################
 
@@ -123,7 +112,7 @@ ${E}/xcombine_sem: $(xcombine_sem_OBJECTS) $(xcombine_sem_SHARED_OBJECTS)
 #######################################
 
 ##
-## smooth_sem
+## smooth_sum
 ##
 
 xsmooth_sem_OBJECTS = \
@@ -184,86 +173,6 @@ ${E}/xsmooth_sem: $(xsmooth_sem_OBJECTS) $(xsmooth_sem_SHARED_OBJECTS)
 	@echo ""
 	$(FCLINK) -o $@ $+ $(xsmooth_sem_LIBS)
 	@echo ""
-
-
-#######################################
-
-##
-## precond_sem
-##
-xprecond_sem_OBJECTS = \
-    $O/postprocess_par.postprocess_module.o \
-    $O/precond_sem.postprocess.o \
-    $O/parse_kernel_names.postprocess.o \
-    $(EMPTY_MACRO)
-
-xprecond_sem_SHARED_OBJECTS = \
-    $O/specfem2D_par.spec_module.o \
-    $O/shared_par.shared_module.o \
-    $O/exit_mpi.shared.o \
-    $O/parallel.shared.o \
-    $O/read_parameter_file.mesh.o \
-    $O/read_value_parameters.shared.o \
-    $O/read_material_table.mesh.o \
-    $O/read_interfaces_file.mesh.o \
-    $O/read_regions.mesh.o \
-    $O/param_reader.cc.o \
-    $(EMPTY_MACRO)
-
-## non-cuda version
-#xprecond_sem_OBJECTS += $(cuda_smooth_sem_STUBS)
-## libs
-xprecond_sem_LIBS = $(MPILIBS)
-#INFO_CUDA_SEM="building xprecond_sem without CUDA support"
-
-${E}/xprecond_sem:  $(xprecond_sem_OBJECTS) $(xprecond_sem_SHARED_OBJECTS)
-	@echo ""
-	@echo "building xprecond_sem"
-	@echo ""
-	$(FCLINK) -o $@ $+ $(xprecond_sem_LIBS)
-	@echo ""
-
-
-#######################################
-
-##
-## binary2ascii_sem
-##
-xbinary2ascii_sem_OBJECTS = \
-    $O/postprocess_par.postprocess_module.o \
-    $O/binary2ascii_sem.postprocess.o \
-    $O/parse_kernel_names.postprocess.o \
-    $(EMPTY_MACRO)
-
-xbinary2ascii_sem_SHARED_OBJECTS = \
-    $O/specfem2D_par.spec_module.o \
-    $O/shared_par.shared_module.o \
-    $O/exit_mpi.shared.o \
-    $O/parallel.shared.o \
-    $O/read_parameter_file.mesh.o \
-    $O/read_value_parameters.shared.o \
-    $O/read_material_table.mesh.o \
-    $O/read_interfaces_file.mesh.o \
-    $O/read_regions.mesh.o \
-    $O/param_reader.cc.o \
-    $(EMPTY_MACRO)
-
-## non-cuda version
-#xprecond_sem_OBJECTS += $(cuda_smooth_sem_STUBS)
-## libs
-xbinary2ascii_sem_LIBS = $(MPILIBS)
-#INFO_CUDA_SEM="building xprecond_sem without CUDA support"
-
-${E}/xbinary2ascii_sem:  $(xbinary2ascii_sem_OBJECTS) $(xbinary2ascii_sem_SHARED_OBJECTS)
-	@echo ""
-	@echo "building xbinary2ascii_sem"
-	@echo ""
-	$(FCLINK) -o $@ $+ $(xbinary2ascii_sem_LIBS)
-	@echo ""
-
-
-
-
 
 #######################################
 

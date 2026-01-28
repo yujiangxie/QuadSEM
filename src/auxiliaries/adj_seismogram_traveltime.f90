@@ -31,7 +31,7 @@
 !
 !========================================================================
 
-program adj_seismogram_amplitude
+program adj_seismogram
 
 ! This program cuts a certain portion of the seismograms and convert it
 ! into the adjoint source for generating banana-dougnut kernels
@@ -43,7 +43,7 @@ program adj_seismogram_amplitude
 !    rm -r -f xadj_seismogram ; gfortran adj_seismogram.f90 -o xadj_seismogram
 !
 ! usage example:
-!    ./xadj_seismogram_amplitude 27.0 32.  AA.S0001  1
+!    ./xadj_seismogram 27.0 32.  AA.S0001  1
 
   implicit none
 
@@ -61,8 +61,7 @@ program adj_seismogram_amplitude
 
   double precision, dimension(:),allocatable :: time_window
   double precision, dimension(:,:),allocatable :: seism
-  !double precision, dimension(:),allocatable :: seism_veloc,seism_accel,ft_bar,seism_win
-  double precision, dimension(:),allocatable :: ft_bar,seism_win
+  double precision, dimension(:),allocatable :: seism_veloc,seism_accel,ft_bar,seism_win
 
   character(len=3) :: compr(2),comp(3)
   character(len=150) :: filename
@@ -82,6 +81,8 @@ program adj_seismogram_amplitude
 
   ! window taper: 1 == Welch / 2 == cosine
   integer,parameter :: window_taper_type = 1
+  logical :: compute_adj
+  compute_adj=.true.
 
 
 !--------------------------------------------------------------------------------
@@ -287,8 +288,8 @@ program adj_seismogram_amplitude
   allocate( time_window(NSTEP), &
             seism(NSTEP,3), &
             seism_win(NSTEP), &
-          !  seism_veloc(NSTEP), &
-          !  seism_accel(NSTEP), &
+            seism_veloc(NSTEP), &
+            seism_accel(NSTEP), &
             ft_bar(NSTEP),stat=ier)
   if (ier /= 0) stop 2
 
@@ -385,30 +386,33 @@ program adj_seismogram_amplitude
         stop 60
       end select
 
-      seism_win(:) = seism(:,icomp) ! lucas,NSTEP, here seism_win(:) is the displacement
+      seism_win(:) = seism(:,icomp) ! lucas,NSTEP, readin seismograms
+    
+      if(compute_adj) then !-------------------------------
+      ! first time derivative (by finite-differences)
+      seism_veloc(:) = 0.d0
+      do itime = 2,NSTEP-1
+         seism_veloc(itime) = (seism_win(itime+1) - seism_win(itime-1))/(2*deltat)
+      enddo
+      seism_veloc(1) = (seism_win(2) - seism_win(1))/deltat
+      seism_veloc(NSTEP) = (seism_win(NSTEP) - seism_win(NSTEP-1))/deltat
 
-      !! first time derivative (by finite-differences)
-      !seism_veloc(:) = 0.d0
-      !do itime = 2,NSTEP-1
-      !   seism_veloc(itime) = (seism_win(itime+1) - seism_win(itime-1))/(2*deltat)
-      !enddo
-      !seism_veloc(1) = (seism_win(2) - seism_win(1))/deltat
-      !seism_veloc(NSTEP) = (seism_win(NSTEP) - seism_win(NSTEP-1))/deltat
+      ! second time derivative
+      seism_accel(:) = 0.d0
+      do itime = 2,NSTEP-1
+         seism_accel(itime) = (seism_veloc(itime+1) - seism_veloc(itime-1))/(2*deltat)
+      enddo
+      seism_accel(1) = (seism_veloc(2) - seism_veloc(1))/deltat
+      seism_accel(NSTEP) = (seism_veloc(NSTEP) - seism_veloc(NSTEP-1))/deltat
 
-      !! second time derivative
-      !seism_accel(:) = 0.d0
-      !do itime = 2,NSTEP-1
-      !   seism_accel(itime) = (seism_veloc(itime+1) - seism_veloc(itime-1))/(2*deltat)
-      !enddo
-      !seism_accel(1) = (seism_veloc(2) - seism_veloc(1))/deltat
-      !seism_accel(NSTEP) = (seism_veloc(NSTEP) - seism_veloc(NSTEP-1))/deltat
+      ! cross-correlation traveltime adjoint source
+      Nnorm = deltat * sum(time_window(:) * seism_win(:) * seism_accel(:))
 
-      ! amplitude adjoint source, lucas
-      Nnorm = deltat * sum(time_window(:) * seism_win(:) * seism_win(:)) !lucas, s^2
-
+      !Nnorm = deltat * sum(time_window(:) * seism_veloc(:) * seism_veloc(:))
 
       if (abs(Nnorm) > EPS) then
-         ft_bar(:) = seism_win(:) * time_window(:) / Nnorm !lucas, w*s/Nnorm
+         !ft_bar(:) = -seism_veloc(:) * time_window(:) / Nnorm
+         ft_bar(:) = seism_veloc(:) * time_window(:) / Nnorm
          print *,'Norm =', Nnorm
       else
          print *,'Norm < EPS for file, zeroeing out trace'
@@ -416,6 +420,17 @@ program adj_seismogram_amplitude
          ft_bar(:) = 0.d0
       endif
       print *
+      else ! lucas, to compute displ based on accelaration.? correct???
+        seism_accel(:) = seism(:,icomp)
+        seism_veloc(1)=0
+        seism_win(1)=0
+        do itime = 2,NSTEP
+        seism_veloc(itime)=seism_veloc(itime-1) + seism_accel(itime-1)*deltat
+        seism_win(itime)=seism_win(itime-1) + seism_veloc(itime-1)*deltat + 0.5*seism_accel(itime-1)*deltat*deltat
+        enddo
+        ft_bar(:)=seism_win(:)*time_window(:)
+        print *,'from accelaration to displacement Nnorm =', Nnorm
+      endif!---------end, compute_adj-------------------------
 
       if (icomp == adj_comp) then
         do itime = 1,NSTEP
@@ -434,8 +449,7 @@ program adj_seismogram_amplitude
 
   ! user output
   print *,'*************************'
-  print *,'amplitude adjoint source calculation, lucas'
   print *,'The input files (AA.S****.BXX/BXY/BXZ.adj) needed to run the adjoint simulation are in folder SEM/'
   print *,'*************************'
 
-end program adj_seismogram_amplitude
+end program adj_seismogram

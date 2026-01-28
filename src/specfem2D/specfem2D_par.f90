@@ -72,9 +72,18 @@ module specfem_par
   double precision, dimension(:), allocatable  :: QKappa_attenuation
   double precision, dimension(:), allocatable  :: Qmu_attenuation
 
+!  double precision, dimension(:), allocatable  :: QKappa_attenuation_m2 ! lucas, CTD-SEM with attenuation, not exiting and used
+!  double precision, dimension(:), allocatable  :: Qmu_attenuation_m2  ! lucas, CTD-SEM with attenuation, not exitiing and used
+
   integer :: nspec_ATT_el,nspec_ATT_ac,nglob_att
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: inv_tau_sigma_nu1,phi_nu1,inv_tau_sigma_nu2,phi_nu2
   real(kind=CUSTOM_REAL), dimension(:,:,:) , allocatable :: Mu_nu1,Mu_nu2
+  !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: inv_tau_sigma_nu1_m2,phi_nu1_m2,inv_tau_sigma_nu2_m2,phi_nu2_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:) , allocatable :: Mu_nu1_m2,Mu_nu2_m2
+  ! for m1, approx Hessian
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: inv_tau_sigma_nu1_m1,phi_nu1_m1,inv_tau_sigma_nu2_m1,phi_nu2_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:) , allocatable :: Mu_nu1_m1,Mu_nu2_m1
 
   ! material
   ! density
@@ -449,6 +458,27 @@ module specfem_par
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: dux_dxl_old,duz_dzl_old,dux_dzl_plus_duz_dxl_old
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: b_dux_dxl_old,b_duz_dzl_old,b_dux_dzl_plus_duz_dxl_old
 
+  ! variable for viscoelastic medium (also shared by solid in poroelastic-simulation) for m2, lucas CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_m2,e11_m2,e13_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: b_e1_m2,b_e11_m2,b_e13_m2 !for undo_attenuation
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_LDDRK_m2,e11_LDDRK_m2,e13_LDDRK_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_initial_rk_m2,e11_initial_rk_m2,e13_initial_rk_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:,:), allocatable :: e1_force_rk_m2,e11_force_rk_m2,e13_force_rk_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: A_newmark_nu1_m2,B_newmark_nu1_m2,A_newmark_nu2_m2,B_newmark_nu2_m2 
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: dux_dxl_old_m2,duz_dzl_old_m2,dux_dzl_plus_duz_dxl_old_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: b_dux_dxl_old_m2,b_duz_dzl_old_m2,b_dux_dzl_plus_duz_dxl_old_m2
+
+
+  ! variable for viscoelastic medium (also shared by solid in poroelastic-simulation) for m1, lucas CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_m1,e11_m1,e13_m1
+!  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: b_e1_m2,b_e11_m2,b_e13_m2 !for undo_attenuation
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_LDDRK_m1,e11_LDDRK_m1,e13_LDDRK_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: e1_initial_rk_m1,e11_initial_rk_m1,e13_initial_rk_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:,:), allocatable :: e1_force_rk_m1,e11_force_rk_m1,e13_force_rk_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: A_newmark_nu1_m1,B_newmark_nu1_m1,A_newmark_nu2_m1,B_newmark_nu2_m1 
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: dux_dxl_old_m1,duz_dzl_old_m1,dux_dzl_plus_duz_dxl_old_m1
+!  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: b_dux_dxl_old_m2,b_duz_dzl_old_m2,b_dux_dzl_plus_duz_dxl_old_m2
+
 
   ! inverse mass matrix for viscoacoustic simulations
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: rmass_inverse_e1
@@ -458,6 +488,23 @@ module specfem_par
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: A_newmark_e1_sf, B_newmark_e1_sf,e1_acous_sf,b_e1_acous_sf
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_initial_rk_acous
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: e1_force_rk_acous,sum_forces_old,b_sum_forces_old
+
+  ! inverse mass matrix for viscoacoustic simulations for m2, lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_acous_m2
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_LDDRK_acous_m2
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_acous_temp_m2,dot_e1_m2,dot_e1_old_m2,A_newmark_e1_m2,B_newmark_e1_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: A_newmark_e1_sf_m2, B_newmark_e1_sf_m2,e1_acous_sf_m2,b_e1_acous_sf_m2 !b_e1_acous_sf_m2 for acoustic ,lucas
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_initial_rk_acous_m2
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: e1_force_rk_acous_m2,sum_forces_old_m2,b_sum_forces_old_m2 !b_sum_forces_old_m2 for acoust case, lucas
+
+  ! inverse mass matrix for viscoacoustic simulations for m1, lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_acous_m1
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_LDDRK_acous_m1
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_acous_temp_m1,dot_e1_m1,dot_e1_old_m1,A_newmark_e1_m1,B_newmark_e1_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: A_newmark_e1_sf_m1, B_newmark_e1_sf_m1,e1_acous_sf_m1,b_e1_acous_sf_m1 !b_e1_acous_sf_m1 for acoustic ,lucas
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: e1_initial_rk_acous_m1
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: e1_force_rk_acous_m1,sum_forces_old_m1,b_sum_forces_old_m1 !b_sum_forces_old_m1 for acoust case, lucas
+  
 
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: accel_elastic_adj_coupling
 
@@ -476,6 +523,9 @@ module specfem_par
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: kaPML_rmemory_dux_dxl,kaPML_rmemory_duz_dzl, &
                                                              muPML_rmemory_dux_dxl,muPML_rmemory_duz_dzl, &
                                                              muPML_rmemory_dux_dzl,muPML_rmemory_duz_dxl
+ 
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: tau_epsilon_nu1_m2,tau_epsilon_nu2_m2  !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: tau_epsilon_nu1_m1,tau_epsilon_nu2_m1  !lucas, CTD-SEM, for m1, approxi Hessian
 
   !for backward simulation in adjoint inversion
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: &
@@ -508,10 +558,10 @@ module specfem_par
   ! buffer for I/O
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer,no_backward_accel_buffer 
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_fwd_um2 ! lucas
-  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_adj_um2 ! lucas
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_adj_du_m ! lucas
  ! real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_adj_um1 ! lucas
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_fwd_du ! lucas
-  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_adj_du ! lucas
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_displ_buffer_adj_du_s ! lucas
 
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_accel_buffer_fwd_um1 ! lucas, acceleration
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: no_backward_accel_buffer_fwd_um2 ! lucas

@@ -371,7 +371,6 @@
     do irec = 1, nrec
       write(IMAIN,*)
       write(IMAIN,*) 'Station # ',irec,'    ',network_name(irec),station_name(irec)
-      write(IMAIN,*) 'lucas test nrecloc in location_receivers = ',nrecloc
 
       if (gather_final_distance(irec,islice_selected_rec(irec)+1) == HUGEVAL) &
         call exit_MPI(myrank,'Error locating receiver')

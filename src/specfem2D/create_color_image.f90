@@ -249,11 +249,9 @@
 
 ! use P velocity model as background where amplitude is negligible
         if ((P_SV) .and. ((vpmax-vpmin)/max(vpmin, TINYVAL) > 0.02d0)) then
-          x1 = (image_color_vp_display(ix,iy)-vpmin)/(vpmax-vpmin)
-          
+          x1 = (image_color_vp_display(ix,iy)-vpmin)/(vpmax-vpmin) 
         else
-         ! x1 = 0.5d0
-           x1=  0.0d0 ! lucas changed for two models comparison
+          x1 = 0.5d0 
         endif
           
 ! rescale to avoid very dark gray levels

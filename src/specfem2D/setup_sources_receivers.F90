@@ -294,7 +294,6 @@
     ! user output
     if (myrank == 0) then
       write(IMAIN,*) 'found a total of ',nrec_tot_found,' receivers, this is okay'
-      write(IMAIN,*) 'lucas test nrecloc = ',nrecloc
       write(IMAIN,*)
       call flush_IMAIN()
     endif

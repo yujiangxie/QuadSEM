@@ -76,7 +76,15 @@
               accel_elastic(1,iglob) = accel_elastic(1,iglob) + sourcearrays(i_source,1,i,j) * stf_used
               accel_elastic(2,iglob) = accel_elastic(2,iglob) + sourcearrays(i_source,2,i,j) * stf_used
               
- 
+              !lucas debug
+              if(it==100 .and. i==5 .and. j==5) then
+              print *, '*********########********* at compute_add_sources_viscoelastic()'
+              print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5) 
+              print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+              print *, '*********########*********accel_elastic(1,iglob)=',accel_elastic(1,iglob)
+              print *, '*********########*********accel_elastic(2,iglob)=',accel_elastic(2,iglob)
+              print *, '*********########*********stf_used=',stf_used
+              endif
 
             enddo
           enddo
@@ -220,14 +228,14 @@ subroutine compute_add_sources_viscoelastic_m2(accel_elastic_m2,it,i_stage)
                accel_elastic_m2(2,iglob) = accel_elastic_m2(2,iglob) + sourcearrays(i_source,2,i,j) * stf_used
              
               !lucas debug
-              !if(it==100 .and. i==5 .and. j==5) then
-              !print *, '*********########********* at compute_add_sources_viscoelastic() in CTD-SEM'
-              !print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5) 
-              !print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
-              !print *, '*********########*********accel_elastic_m2(1,iglob)=',accel_elastic_m2(1,iglob)
-              !print *, '*********########*********accel_elastic_m2(2,iglob)=',accel_elastic_m2(2,iglob)
-              !print *, '*********########*********stf_used=',stf_used
-              !endif
+              if(it==100 .and. i==5 .and. j==5) then
+              print *, '*********########********* at compute_add_sources_viscoelastic() in CTD-SEM'
+              print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5) 
+              print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+              print *, '*********########*********accel_elastic_m2(1,iglob)=',accel_elastic_m2(1,iglob)
+              print *, '*********########*********accel_elastic_m2(2,iglob)=',accel_elastic_m2(2,iglob)
+              print *, '*********########*********stf_used=',stf_used
+              endif
 
             enddo
           enddo
@@ -298,14 +306,14 @@ subroutine compute_add_sources_viscoelastic_m1(accel_elastic_m1,it,i_stage)
                accel_elastic_m1(2,iglob) = accel_elastic_m1(2,iglob) + sourcearrays(i_source,2,i,j) * stf_used
              
               !lucas debug
-              !if(it==100 .and. i==5 .and. j==5) then
-              !print *, '*********########********* at compute_add_sources_viscoelastic() in CTD-SEM'
-              !print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5) 
-              !print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
-              !print *, '*********########*********accel_elastic_m1(1,iglob)=',accel_elastic_m1(1,iglob)
-              !print *, '*********########*********accel_elastic_m1(2,iglob)=',accel_elastic_m1(2,iglob)
-              !print *, '*********########*********stf_used=',stf_used
-              !endif
+              if(it==100 .and. i==5 .and. j==5) then
+              print *, '*********########********* at compute_add_sources_viscoelastic() in CTD-SEM'
+              print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5) 
+              print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+              print *, '*********########*********accel_elastic_m1(1,iglob)=',accel_elastic_m1(1,iglob)
+              print *, '*********########*********accel_elastic_m1(2,iglob)=',accel_elastic_m1(2,iglob)
+              print *, '*********########*********stf_used=',stf_used
+              endif
 
             enddo
           enddo
@@ -555,70 +563,134 @@ subroutine compute_add_sources_viscoelastic_m1(accel_elastic_m1,it,i_stage)
 !
 !=====================================================================
 !
+
 ! for viscoelastic solver for adjoint propagation wave field
 
-subroutine compute_add_sources_viscoelastic_adjoint()
+  subroutine compute_add_sources_viscoelastic_adjoint() 
 
-use constants, only: CUSTOM_REAL,NGLLX,NGLLZ
+  use constants, only: CUSTOM_REAL,NGLLX,NGLLZ,NDIM !lucas added NDIM
+  
 
-use specfem_par, only: P_SV,accel_elastic,ispec_is_elastic,NSTEP,it, &
-                       nrecloc,ispec_selected_rec_loc,ibool, islice_selected_rec, myrank, & ! lucas &
-                       source_adjoint,xir_store_loc,gammar_store_loc
-implicit none
+  use specfem_par, only: P_SV,accel_elastic, ispec_is_elastic,NSTEP,it, & 
+                         nrecloc,ispec_selected_rec_loc,ibool, & !myrank, & ! lucas added myrank 
+                         source_adjoint,xir_store_loc,gammar_store_loc, anglesource
+                         !lucas, xir_store_loc is the lagrange interpolant of receiver, see setup_source_receivers.f90, !lucas add anglesource and sourcearrays
+                        
+  implicit none
 
-!local variables
-integer :: irec_local,i,j,iglob,ispec
-integer :: it_tmp
+  !local variables
+  integer :: irec_local,i,j,iglob,ispec,i_source ! lucas added i_source=1
+  integer :: it_tmp !xx,yy
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLLX,NGLLZ) :: sourcearrays_lucas
 
-! time step index
-it_tmp = NSTEP - it + 1
+  ! time step index
+  it_tmp = NSTEP - it + 1
+              i_source=1
+             
+             ! if(it_tmp==7200-100) then
+             ! do yy=1,NGLLZ
+             ! do xx=1,NGLLX
+             ! print *, '*********########********* before the do'
+             ! print *, '*********########********* myrank=',myrank
+             ! print *, '*********########*********sourcearrays(i_source,1,i,i)=',sourcearrays(i_source,1,xx,yy),'i=',xx,'j=',yy
+             ! print *, '*********########*********sourcearrays(i_source,2,i,j)=',sourcearrays(i_source,2,xx,yy),'i=',xx,'j=',yy
+             ! enddo
+             ! enddo
+             ! endif 
+                
+  do irec_local = 1,nrecloc
+      ! if(it_tmp==7200-100) then
+      !        print *, '*********########********* test myrank'
+      !        print *, '*********########********* myrank=',myrank  
+      ! endif
+     i_source=irec_local
+              
+    ! element containing adjoint source
+    ispec = ispec_selected_rec_loc(irec_local) 
+    if (ispec_is_elastic(ispec)) then
+      ! add source array
+      if (P_SV) then
+        ! P-SV waves
+        do j = 1,NGLLZ
+          do i = 1,NGLLX
+            iglob = ibool(i,j,ispec)
+             !lucas debug
+             !if(mod(it_tmp,50)==0) then
+             !print *, '********#######*****accel_elastic(2,iglob), before = ',accel_elastic(2,iglob), 'and it_tmp=',it_tmp
+             !endif
 
-do irec_local = 1,nrecloc
-   !--------
-   if (myrank == islice_selected_rec(irec_local)) then ! lucas added
-   if(it==1000) then
-          print *, '*********########********* myrank=',myrank
-          print *, '*********########********* nrecloc =',nrecloc
-   endif
-   endif
-   !-------
-  ! element containing adjoint source
-  ispec = ispec_selected_rec_loc(irec_local)
-  if (ispec_is_elastic(ispec)) then
-    ! add source array
-    if (P_SV) then
-      ! P-SV waves
-      do j = 1,NGLLZ
-        do i = 1,NGLLX
-          iglob = ibool(i,j,ispec)
-          !accel_elastic(1,iglob) = accel_elastic(1,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
-          !                            source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL)
-          !accel_elastic(2,iglob) = accel_elastic(2,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
-          !                            source_adjoint(irec_local,it_tmp,2),kind=CUSTOM_REAL)
-          accel_elastic(1,iglob) = accel_elastic(1,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
-                                      source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL) !lucas add *sin(100*3.1415926/180.d0) after source_adjoint
-          accel_elastic(2,iglob) = accel_elastic(2,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
-                                      source_adjoint(irec_local,it_tmp,2),kind=CUSTOM_REAL) !lucas add *-cos(100*3.1415926/180.d0) after source_adjoint
+          !  accel_elastic(1,iglob) = accel_elastic(1,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
+          !                              source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL)
+          !  accel_elastic(2,iglob) = accel_elastic(2,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
+          !                              source_adjoint(irec_local,it_tmp,2),kind=CUSTOM_REAL)
+          if(i==5 .and. j==5 ) then
+          ! for plane wave
+          sourcearrays_lucas(1,i,j)=sin(3.1415926-anglesource(i_source))
+          sourcearrays_lucas(2,i,j)=-cos(3.1415926-anglesource(i_source))
+          ! for point source
+          !sourcearrays_lucas(1,i,j)=sin(anglesource(i_source))
+          !sourcearrays_lucas(2,i,j)=-cos(anglesource(i_source))
+          else
+          sourcearrays_lucas(1,i,j)=0;
+          sourcearrays_lucas(2,i,j)=0;
+          endif
+            ! lucas, the adjoint source, I use source_adjoint(irec_local,it_tmp,2) for vertical, and source_adjoint(irec_local,it_tmp,1) for horizontal
+
+            !accel_elastic(1,iglob) = accel_elastic(1,iglob) + sourcearrays_lucas(1,i,j)*source_adjoint(irec_local,it_tmp,1) ! lucas added angle here, sin(132.3*3.1415926/180.d0)
+            !accel_elastic(2,iglob) = accel_elastic(2,iglob) + sourcearrays_lucas(2,i,j)*source_adjoint(irec_local,it_tmp,2) ! lucas added angle here, (-cos(132.3*3.1415926/180.d0))*
+
+           !accel_elastic(1,iglob) = accel_elastic(1,iglob) + source_adjoint(irec_local,it_tmp,1)
+                                   ! sin(3.1415926-anglesource(i_source)) ! lucas added angle here, sin(132.3*3.1415926/180.d0)
+           !accel_elastic(2,iglob) = accel_elastic(2,iglob) + source_adjoint(irec_local,it_tmp,2)
+                                   ! (-cos(3.1415926-anglesource(i_source)))  ! lucas (-cos(132.3*3.1415926/180.d0))
+
+            
+            accel_elastic(1,iglob) = accel_elastic(1,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)*&
+                                     source_adjoint(irec_local,it_tmp,1) ,kind=CUSTOM_REAL) !*sin(100*3.1415926/180.d0) !lucas 155 for 25 incoming wave
+            accel_elastic(2,iglob) = accel_elastic(2,iglob) + real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)*&
+                                     source_adjoint(irec_local,it_tmp,2) ,kind=CUSTOM_REAL) !*(-cos(100*3.1415926/180.d0)) !lucas 155 for 25 incoming wave
+           
+              !lucas debug
+              if(it_tmp==7200-100 .and. i==5 .and. j==5) then
+              print *, '*********########********* in the loop'
+              print *, '*********########*********sourcearrays_lucas(1,5,5)=',sourcearrays_lucas(1,5,5)  
+              print *, '*********########*********sourcearrays_lucas(2,5,5)=',sourcearrays_lucas(2,5,5)
+              !print *, '*********########*********xir_store_loc(irec_local,i)=',xir_store_loc(irec_local,i), 'i=', i
+              !print *, '*********########*********gammar_store_loc(irec_local,j)=',gammar_store_loc(irec_local,j), 'j=', j
+              print *, '*********########*********accel_elastic(1,iglob)=',accel_elastic(1,iglob)
+              print *, '*********########*********accel_elastic(2,iglob)=',accel_elastic(2,iglob)
+              print *, '*********########********* source_adjoint(irec_local,it_tmp,1)=',source_adjoint(irec_local,it_tmp,1)
+              print *, '*********########********* source_adjoint(irec_local,it_tmp,2)=',source_adjoint(irec_local,it_tmp,2)
+              endif
+
+
+          enddo
         enddo
-      enddo
-    else
-      ! SH (membrane) wavescompute_forces_v
-      do j = 1,NGLLZ
-        do i = 1,NGLLX
-          iglob = ibool(i,j,ispec)
-          accel_elastic(1,iglob) = accel_elastic(1,iglob) +  real(xir_store_loc(irec_local,i)*gammar_store_loc(irec_local,j)* &
-                                      source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL)
+
+      else
+        ! SH (membrane) wavescompute_forces_v
+        do j = 1,NGLLZ
+          do i = 1,NGLLX
+            iglob = ibool(i,j,ispec)
+            accel_elastic(1,iglob) = accel_elastic(1,iglob) +  real(xir_store_loc(irec_local,i)*&
+                gammar_store_loc(irec_local,j)*source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL)
+
+          enddo
         enddo
-      enddo
-    endif
-  endif ! if element is elastic
+      endif
+    endif ! if element is elastic
+  enddo ! irec_local = 1,nrecloc
 
-enddo ! irec_local = 1,nrecloc
+               !if(it_tmp==7200-100) then
+               !print *, '*********########********* in the end'
+               !print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5)  
+               !print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+               !endif
 
-end subroutine compute_add_sources_viscoelastic_adjoint
 
 
 
+  end subroutine compute_add_sources_viscoelastic_adjoint
 
  !-----------------lucas, CTD-SEM-------m2------------------------------------------------------------------------
  ! for viscoelastic solver for adjoint propagation wave field
@@ -629,26 +701,41 @@ end subroutine compute_add_sources_viscoelastic_adjoint
   
 
   use specfem_par, only: P_SV,accel_elastic_m2, ispec_is_elastic,NSTEP,it, & !lucas, CTD-SEM
-                         nrecloc,ispec_selected_rec_loc,ibool, & ! islice_selected_rec, myrank, & ! lucas added myrank.
-                         source_adjoint,xir_store_loc,gammar_store_loc !, sourcearrays, anglesource
+                         nrecloc,ispec_selected_rec_loc,ibool, & !myrank, & ! lucas added myrank 
+                         source_adjoint,xir_store_loc,gammar_store_loc, anglesource ! sourcearrays
                          !lucas, xir_store_loc is the lagrange interpolant of receiver, see setup_source_receivers.f90, !lucas add anglesource and sourcearrays
                          
   implicit none
 
   !local variables
-  integer :: irec_local,i,j,iglob,ispec
+  integer :: irec_local,i,j,iglob,ispec,i_source ! lucas added i_source=1
   integer :: it_tmp !,xx,yy
- 
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLLX,NGLLZ) :: sourcearrays_lucas
+
   ! time step index
   it_tmp = NSTEP - it + 1
- 
+              i_source=1
+             
+             ! if(it_tmp==7200-100) then
+             ! do yy=1,NGLLZ
+             ! do xx=1,NGLLX
+             ! print *, '*********########********* before the do'
+             ! print *, '*********########********* myrank=',myrank
+             ! print *, '*********########*********sourcearrays(i_source,1,i,i)=',sourcearrays(i_source,1,xx,yy),'i=',xx,'j=',yy
+             ! print *, '*********########*********sourcearrays(i_source,2,i,j)=',sourcearrays(i_source,2,xx,yy),'i=',xx,'j=',yy
+             ! enddo
+             ! enddo
+             ! endif 
+                
   do irec_local = 1,nrecloc
        !if(it_tmp==7200-100) then
-       !  print *, '*********########********* test myrank'
-       !  print *, '*********########********* myrank=',myrank
+       !       print *, '*********########********* test myrank'
+       !       print *, '*********########********* myrank=',myrank  
        !endif
+     i_source=irec_local
+              
     ! element containing adjoint source
-    ispec = ispec_selected_rec_loc(irec_local)
+    ispec = ispec_selected_rec_loc(irec_local) 
     if (ispec_is_elastic(ispec)) then
       ! add source array
       if (P_SV) then
@@ -656,7 +743,20 @@ end subroutine compute_add_sources_viscoelastic_adjoint
         do j = 1,NGLLZ
           do i = 1,NGLLX
             iglob = ibool(i,j,ispec)
+
+          if(i==5 .and. j==5 ) then
+          ! for plane wave
+          sourcearrays_lucas(1,i,j)=sin(3.1415926-anglesource(i_source))
+          sourcearrays_lucas(2,i,j)=-cos(3.1415926-anglesource(i_source))
+          ! for point source
+          !sourcearrays_lucas(1,i,j)=sin(anglesource(i_source))
+          !sourcearrays_lucas(2,i,j)=-cos(anglesource(i_source))
+          else
+          sourcearrays_lucas(1,i,j)=0;
+          sourcearrays_lucas(2,i,j)=0;
+          endif
             ! lucas, the adjoint source, I use source_adjoint(irec_local,it_tmp,2) for vertical, and source_adjoint(irec_local,it_tmp,1) for horizontal
+
             accel_elastic_m2(1,iglob) = accel_elastic_m2(1,iglob) + real(xir_store_loc(irec_local,i)*&
                 gammar_store_loc(irec_local,j)*source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL) !*sin(100*3.1415926/180.d0)
             accel_elastic_m2(2,iglob) = accel_elastic_m2(2,iglob) + real(xir_store_loc(irec_local,i)*&
@@ -670,13 +770,27 @@ end subroutine compute_add_sources_viscoelastic_adjoint
         do j = 1,NGLLZ
           do i = 1,NGLLX
             iglob = ibool(i,j,ispec)
+
+            
             accel_elastic_m2(1,iglob) = accel_elastic_m2(1,iglob) +  real(xir_store_loc(irec_local,i)*&
                gammar_store_loc(irec_local,j)*source_adjoint(irec_local,it_tmp,1),kind=CUSTOM_REAL)
+            
+
+
           enddo
         enddo
       endif
     endif ! if element is elastic
   enddo ! irec_local = 1,nrecloc
+
+               !if(it_tmp==7200-100) then
+               !print *, '*********########********* in the end'
+               !print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5)  
+               !print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+               !endif
+
+
+
 
   end subroutine compute_add_sources_viscoelastic_adjoint_m2
 
@@ -689,8 +803,8 @@ end subroutine compute_add_sources_viscoelastic_adjoint
   
 
   use specfem_par, only: P_SV,accel_elastic_m1, ispec_is_elastic,NSTEP,it, & !lucas, CTD-SEM
-                         nrecloc,ispec_selected_rec_loc,ibool, & !islice_selected_rec, myrank, & ! lucas added myrank.
-                         source_adjoint_m2,xir_store_loc,gammar_store_loc !, sourcearrays, anglesource !lucas, CTD-SEM
+                         nrecloc,ispec_selected_rec_loc,ibool, & !  myrank, & ! lucas added myrank
+                         source_adjoint_m2,xir_store_loc,gammar_store_loc, anglesource !lucas, CTD-SEM
                          !lucas, xir_store_loc is the lagrange interpolant of receiver, see setup_source_receivers.f90, !lucas add anglesource and sourcearrays
                          
   implicit none
@@ -698,28 +812,32 @@ end subroutine compute_add_sources_viscoelastic_adjoint
   !local variables
   integer :: irec_local,i,j,iglob,ispec,i_source ! lucas added i_source=1
   integer :: it_tmp !,xx,yy
-  
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLLX,NGLLZ) :: sourcearrays_lucas
+
   ! time step index
   it_tmp = NSTEP - it + 1
-  i_source=1
-!  if(it_tmp==7200-100) then
-!    do yy=1,NGLLZ
-!    do xx=1,NGLLX
-!      print *, '*********########********* before the do'
-!      print *, '*********########********* myrank=',myrank
-!      print *, '*********########*********sourcearrays(i_source,1,i,i)=',sourcearrays(i_source,1,xx,yy),'i=',xx,'j=',yy
-!      print *, '*********########*********sourcearrays(i_source,2,i,j)=',sourcearrays(i_source,2,xx,yy),'i=',xx,'j=',yy
-!    enddo
-!    enddo
-!  endif
+              i_source=1
+             
+             ! if(it_tmp==7200-100) then
+             ! do yy=1,NGLLZ
+             ! do xx=1,NGLLX
+             ! print *, '*********########********* before the do'
+             ! print *, '*********########********* myrank=',myrank
+             ! print *, '*********########*********sourcearrays(i_source,1,i,i)=',sourcearrays(i_source,1,xx,yy),'i=',xx,'j=',yy
+             ! print *, '*********########*********sourcearrays(i_source,2,i,j)=',sourcearrays(i_source,2,xx,yy),'i=',xx,'j=',yy
+             ! enddo
+             ! enddo
+             ! endif 
                 
   do irec_local = 1,nrecloc
        !if(it_tmp==7200-100) then
        !       print *, '*********########********* test myrank'
        !       print *, '*********########********* myrank=',myrank  
        !endif
+     i_source=irec_local
+              
     ! element containing adjoint source
-    ispec = ispec_selected_rec_loc(irec_local)
+    ispec = ispec_selected_rec_loc(irec_local) 
     if (ispec_is_elastic(ispec)) then
       ! add source array
       if (P_SV) then
@@ -727,12 +845,25 @@ end subroutine compute_add_sources_viscoelastic_adjoint
         do j = 1,NGLLZ
           do i = 1,NGLLX
             iglob = ibool(i,j,ispec)
+
+          if(i==5 .and. j==5 ) then
+          ! for plane wave
+          sourcearrays_lucas(1,i,j)=sin(3.1415926-anglesource(i_source))
+          sourcearrays_lucas(2,i,j)=-cos(3.1415926-anglesource(i_source))
+          ! for point source
+          !sourcearrays_lucas(1,i,j)=sin(anglesource(i_source))
+          !sourcearrays_lucas(2,i,j)=-cos(anglesource(i_source))
+          else
+          sourcearrays_lucas(1,i,j)=0;
+          sourcearrays_lucas(2,i,j)=0;
+          endif
             ! lucas, the adjoint source, I use source_adjoint_m2(irec_local,it_tmp,2) for vertical, and source_adjoint_m2(irec_local,it_tmp,1) for horizontal
             ! lucas, source_adjoint_m2 is the adjoint source computed by the waveforms of m2
             accel_elastic_m1(1,iglob) = accel_elastic_m1(1,iglob) + real(xir_store_loc(irec_local,i)*&
                 gammar_store_loc(irec_local,j)*source_adjoint_m2(irec_local,it_tmp,1),kind=CUSTOM_REAL) !*sin(100*3.1415926/180.d0)
             accel_elastic_m1(2,iglob) = accel_elastic_m1(2,iglob) + real(xir_store_loc(irec_local,i)*&
                 gammar_store_loc(irec_local,j)*source_adjoint_m2(irec_local,it_tmp,2),kind=CUSTOM_REAL) !*(-cos(100*3.1415926/180.d0))
+
           enddo
         enddo
 
@@ -741,14 +872,28 @@ end subroutine compute_add_sources_viscoelastic_adjoint
         do j = 1,NGLLZ
           do i = 1,NGLLX
             iglob = ibool(i,j,ispec)
+
+            
             accel_elastic_m1(1,iglob) = accel_elastic_m1(1,iglob) +  real(xir_store_loc(irec_local,i)*&
                gammar_store_loc(irec_local,j)*source_adjoint_m2(irec_local,it_tmp,1),kind=CUSTOM_REAL)
+            
+
+
           enddo
         enddo
       endif
     endif ! if element is elastic
   enddo ! irec_local = 1,nrecloc
-              
+
+               !if(it_tmp==7200-100) then
+               !print *, '*********########********* in the end'
+               !print *, '*********########*********sourcearrays(i_source,1,5,5)=',sourcearrays(i_source,1,5,5)  
+               !print *, '*********########*********sourcearrays(i_source,2,5,5)=',sourcearrays(i_source,2,5,5)
+               !endif
+
+
+
+
   end subroutine compute_add_sources_viscoelastic_adjoint_m1
 
 

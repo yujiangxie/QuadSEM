@@ -374,12 +374,20 @@
   ! sets up and precomputes simulation arrays
   call prepare_timerun() ! lucas: prepare_wavefields(), i.e., allocate displ_elastic, veloc_elastic, accel_elastic
 
-  ! steps through time iterations
+!lucas changed this for save the attenued fields even using the iterate_time()
+  ! steps through time iterations, the old version
   if (UNDO_ATTENUATION_AND_OR_PML) then
     call iterate_time_undoatt()
   else
     call iterate_time() !lucas kernel calculation
   endif
+
+!     !--- test for attenuation Hessian calcuation uisng storage method
+!     call iterate_time() !lucas kernel calculation
+!     if (UNDO_ATTENUATION_AND_OR_PML) then
+!     print *, 'UNDO_ATTENUATION_AND_OR_PML = ', UNDO_ATTENUATION_AND_OR_PML
+!     endif
+     !---------------------------------------------
 
   ! saves last time frame and kernels
   call finalize_simulation() ! lucas:save model and forward output (e.g.,lastframe_elastic******)

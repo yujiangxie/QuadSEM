@@ -40,7 +40,7 @@
   use specfem_par, only: myrank,any_elastic,SIMULATION_TYPE, &
                          nspec_left,nspec_right,nspec_bottom,nspec_top, &
                          b_absorb_elastic_left,b_absorb_elastic_right, &
-                         b_absorb_elastic_bottom,b_absorb_elastic_top
+                         b_absorb_elastic_bottom,b_absorb_elastic_top,ATTENUATION_VISCOELASTIC
 
   implicit none
   ! local parameters
@@ -49,6 +49,7 @@
 
   ! checks if anything to do in this slice
   if (.not. any_elastic) return
+  if (ATTENUATION_VISCOELASTIC) return  ! lucas, CTD-SEM
 
   ! checks if anything to do
   if (SIMULATION_TYPE /= 3) return
@@ -104,7 +105,7 @@ subroutine prepare_absorb_read_elastic_m2()
   use specfem_par, only: myrank,any_elastic,SIMULATION_TYPE, &
                          nspec_left,nspec_right,nspec_bottom,nspec_top, &
                          b_absorb_elastic_left_m2,b_absorb_elastic_right_m2, & !lucas, CTD-SEM
-                         b_absorb_elastic_bottom_m2,b_absorb_elastic_top_m2 !lucas, CTD-SEM
+                         b_absorb_elastic_bottom_m2,b_absorb_elastic_top_m2,ATTENUATION_VISCOELASTIC !lucas, CTD-SEM
 
   implicit none
   ! local parameters
@@ -113,6 +114,7 @@ subroutine prepare_absorb_read_elastic_m2()
 
   ! checks if anything to do in this slice
   if (.not. any_elastic) return
+  if (ATTENUATION_VISCOELASTIC) return  ! lucas, CTD-SEM
 
   ! checks if anything to do
   if (SIMULATION_TYPE /= 3) return

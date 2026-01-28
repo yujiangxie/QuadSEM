@@ -45,7 +45,6 @@
   ! iphase: iphase = 1 is for computing outer elements (on MPI interface),
   !         iphase = 2 is for computing inner elements
   integer :: iphase
-!  integer :: iglob_source_lucas !lucas
 
   ! checks if anything to do in this slice
   if ((.not. any_elastic) .and. (.not. SOURCE_IS_MOVING)) return
@@ -99,6 +98,11 @@
             else
               call compute_add_sources_viscoelastic(accel_elastic,it,i_stage) 
 
+              !lucas debug
+              !if(mod(it,100)==0) then
+              !print *, '************###########**************testing runing or not, it=',it
+              !endif
+              
             endif
           endif
 
@@ -116,28 +120,6 @@
         if (SIMULATION_TYPE == 3) then
           ! adjoint sources
           call compute_add_sources_viscoelastic_adjoint()
-          
-         ! !lucas: for test----------------------------------
-         ! iglob_source_lucas=ibool(2,2,ispec_selected_rec(39))
-         ! do iglob = 1,nglob
-         !  if(myrank==islice_selected_rec(39)) then
-         !   if(iglob==iglob_source_lucas) then
-         !    if(mod(it,100)==0) then
-         !      write(6,*) 'in calling_routine.F90 to print adjoint or forward fields:'
-         !      write(6,*) 'ispec_selected_rec(39) = ',ispec_selected_rec(39) 
-         !      write(6,*) 'myrank = ',myrank
-         !      write(6,*) 'displ_elastic(2,iglob_source_lucas) = u(m) = ', &
-         !                  displ_elastic(2,iglob_source_lucas)
-         !      write(6,*) 'veloc_elastic(2,iglob_source_lucas) = u(m) = ', &
-         !                  veloc_elastic(2,iglob_source_lucas)
-         !      write(6,*) 'accel_elastic(2,iglob_source_lucas) = u(m) = ', &
-         !                  accel_elastic(2,iglob_source_lucas)
-         !    endif
-         !   endif
-         !  endif
-         ! enddo
-         !  !lucas: for test----------
-
         endif
       endif
 
@@ -256,7 +238,9 @@
     ! main solver for the elastic elements
     ! visco-elastic term
                                                                                       
-    call compute_forces_viscoelastic_m2(accel_elastic_m2,veloc_elastic_m2,displ_elastic_m2,displ_elastic_old_m2,iphase) !lucas1, CTD-SEM
+    call compute_forces_viscoelastic_m2(accel_elastic_m2,veloc_elastic_m2,displ_elastic_m2,displ_elastic_old_m2, & 
+                                     dux_dxl_old_m2,duz_dzl_old_m2,dux_dzl_plus_duz_dxl_old_m2, &
+                                     PML_BOUNDARY_CONDITIONS,e1_m2,e11_m2,e13_m2,iphase) !lucas, CTD-SEM
     
     ! computes additional contributions to acceleration field
     if (iphase == 1) then
@@ -443,7 +427,9 @@
     ! main solver for the elastic elements
     ! visco-elastic term
                                                                                       
-    call compute_forces_viscoelastic_m1(accel_elastic_m1,veloc_elastic_m1,displ_elastic_m1,displ_elastic_old_m1,iphase) !lucas1, CTD-SEM
+    call compute_forces_viscoelastic_m1(accel_elastic_m1,veloc_elastic_m1,displ_elastic_m1,displ_elastic_old_m1, &
+                                     dux_dxl_old_m1,duz_dzl_old_m1,dux_dzl_plus_duz_dxl_old_m1,&
+                                     PML_BOUNDARY_CONDITIONS,e1_m1,e11_m1,e13_m1,iphase) !lucas, CTD-SEM
     
     ! computes additional contributions to acceleration field
     if (iphase == 1) then
@@ -630,7 +616,7 @@
     !                                                 -> 2. subset: it_temp = (2-2)*500 + 1 = 1,2,..,500
     it_temp = (NSUBSET_ITERATIONS - iteration_on_subset)*NT_DUMP_ATTENUATION + it_of_this_subset
     ! time scheme
-    istage_temp = i_stage
+    istage_temp = i_stage !lucas, stage_time_scheme, ! Newmark=1, ! LDDRK=2: Low-Dissipation and low-dispersion Runge-Kutta, RK=3: Runge-Kutta
   else
     ! time increment
     ! example: NSTEP = 800 -> 800,799,..,1
@@ -790,16 +776,18 @@
   ! distinguishes two runs: for elements on MPI interfaces (outer), and elements within the partitions (inner)
   do iphase = 1,2
     !lucas1, CTD-SEM
-    call compute_forces_viscoelastic_m2(b_accel_elastic_m2,b_veloc_elastic_m2,b_displ_elastic_m2,b_displ_elastic_old_m2,iphase) 
+    call compute_forces_viscoelastic_m2(b_accel_elastic_m2,b_veloc_elastic_m2,b_displ_elastic_m2,b_displ_elastic_old_m2,&
+                                     b_dux_dxl_old_m2,b_duz_dzl_old_m2, &
+                                     b_dux_dzl_plus_duz_dxl_old_m2,.false.,b_e1_m2,b_e11_m2,b_e13_m2,iphase)
 
     ! computes additional contributions
     if (iphase == 1) then
       ! Stacey boundary conditions
       if (STACEY_ABSORBING_CONDITIONS) then
         if (UNDO_ATTENUATION_AND_OR_PML) then
-          call compute_stacey_elastic(b_accel_elastic,b_veloc_elastic)
+          call compute_stacey_elastic_m2(b_accel_elastic_m2,b_veloc_elastic_m2) !lucas2, CTD-SEM, the boundary fields need to compute
         else
-          call compute_stacey_elastic_backward_m2(b_accel_elastic_m2)!lucas2, CTD-SEM
+          call compute_stacey_elastic_backward_m2(b_accel_elastic_m2)!lucas2, CTD-SEM, the bounady fields need to read from stored files
         endif
       endif
 
@@ -850,7 +838,7 @@
     ! assembling accel_elastic for elastic elements
     if (NPROC > 1 .and. ninterface_elastic > 0) then
       if (iphase == 1) then
-        call assemble_MPI_vector_el_s(b_accel_elastic_m2)
+        call assemble_MPI_vector_el_s(b_accel_elastic_m2) 
       else
         call assemble_MPI_vector_el_w(b_accel_elastic_m2)
       endif

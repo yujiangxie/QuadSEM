@@ -33,7 +33,7 @@
 
   module postprocess_par
 
-  use constants, only: MAX_STRING_LEN,IIN,IOUT,CUSTOM_REAL,NGLLX,NGLLZ,GAUSSALPHA,GAUSSBETA,IN_DATA_FILES !lucas
+  use constants, only: MAX_STRING_LEN,IIN,IOUT,CUSTOM_REAL,NGLLX,NGLLZ,GAUSSALPHA,GAUSSBETA
 
   implicit none
 

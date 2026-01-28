@@ -871,7 +871,7 @@ subroutine assemble_MPI_scalar_m2(array_val1,npoin_val1, &
     request_send_recv_elastic, &
     buffer_send_faces_vector_el, &
     buffer_recv_faces_vector_el, &
-    my_neighbors
+    my_neighbors 
 
   implicit none
 
@@ -1007,6 +1007,8 @@ subroutine assemble_MPI_scalar_m2(array_val1,npoin_val1, &
 !
 
 
+!-------------------------------------------------------------------------------
+
   subroutine assemble_MPI_vector_el_w(array_val)
 
 ! waits for data and assembles
@@ -1057,6 +1059,7 @@ subroutine assemble_MPI_scalar_m2(array_val1,npoin_val1, &
   endif
 
   end subroutine assemble_MPI_vector_el_w
+
 
 
 

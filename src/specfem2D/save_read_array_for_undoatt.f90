@@ -31,7 +31,7 @@
 !
 !=====================================================================
 
-  subroutine save_forward_arrays_undoatt()
+  subroutine save_forward_arrays_undoatt() !lucas, done also for m2
 
   use constants, only: IOUT_UNDO_ATT,MAX_STRING_LEN,OUTPUT_FILES,NGLLX,NGLLZ
 
@@ -40,6 +40,8 @@
     potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
     displ_elastic,veloc_elastic,accel_elastic, &
     e1,e11,e13,dux_dxl_old,duz_dzl_old,dux_dzl_plus_duz_dxl_old, &
+    displ_elastic_m2,veloc_elastic_m2,accel_elastic_m2, & !lucas, CTD-SEM
+    e1_m2,e11_m2,e13_m2,dux_dxl_old_m2,duz_dzl_old_m2,dux_dzl_plus_duz_dxl_old_m2, CTD_SEM, & !lucas, CTD-SEM
     e1_acous_sf,sum_forces_old,GPU_MODE,nspec_ATT_ac,nglob
 
   use specfem_par_gpu, only: Mesh_pointer
@@ -60,6 +62,14 @@
   open(unit=IOUT_UNDO_ATT  ,file=trim(OUTPUT_FILES)//outputname, &
        status='unknown',form='unformatted',action='write',iostat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_save_frame_at** for writing')
+ 
+  if(CTD_SEM) then ! lucas add output for m2 -------------
+  write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_m2_save_frame_at',iteration_on_subset_tmp,'.bin'
+  open(unit=IOUT_UNDO_ATT+1  ,file=trim(OUTPUT_FILES)//outputname, &
+       status='unknown',form='unformatted',action='write',iostat=ier)
+  if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_m2_save_frame_at** for writing')
+  endif
+  !---------------------
 
   if (any_acoustic) then
     if (GPU_MODE) call transfer_fields_ac_from_device(nglob,potential_acoustic,potential_dot_acoustic, &
@@ -92,8 +102,25 @@
       write(IOUT_UNDO_ATT) dux_dzl_plus_duz_dxl_old
     endif
   endif
-
   close(IOUT_UNDO_ATT)
+
+  if(CTD_SEM) then ! lucas add for --------------m2
+  if (any_elastic) then
+    write(IOUT_UNDO_ATT+1) accel_elastic_m2
+    write(IOUT_UNDO_ATT+1) veloc_elastic_m2
+    write(IOUT_UNDO_ATT+1) displ_elastic_m2
+
+    if (ATTENUATION_VISCOELASTIC) then
+      write(IOUT_UNDO_ATT+1) e1_m2
+      write(IOUT_UNDO_ATT+1) e11_m2
+      write(IOUT_UNDO_ATT+1) e13_m2
+      write(IOUT_UNDO_ATT+1) dux_dxl_old_m2
+      write(IOUT_UNDO_ATT+1) duz_dzl_old_m2
+      write(IOUT_UNDO_ATT+1) dux_dzl_plus_duz_dxl_old_m2
+    endif
+  endif
+  close(IOUT_UNDO_ATT+1)
+  endif !--------------------------------------- m2 
 
   end subroutine save_forward_arrays_undoatt
 
@@ -173,11 +200,11 @@
           !--------
           endif
            
-      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_iframe,'.bin'
+     write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_iframe,'.bin'
       open(unit=IOUT_UNDO_ATT+100,file=trim(OUTPUT_FILES)//outputname, &
          status='unknown',form='unformatted',action='write',iostat=ier) 
       if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_m2_iframe_at** for writing')
-          if(write_field_at_frames .and. (.not. for_m1)) then 
+          if(write_field_at_frames .and. (.not. for_m1)) then
           !---------
           if(no_backward_iframe==000101 .or. no_backward_iframe==000301 .or. no_backward_iframe==000501  &
           .or. no_backward_iframe==000701 .or. no_backward_iframe==000901) then ! write one time frame for ploting,
@@ -194,7 +221,7 @@
       open(unit=IOUT_UNDO_ATT+200,file=trim(OUTPUT_FILES)//outputname, &
          status='unknown',form='unformatted',action='write',iostat=ier) 
       if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_accel_m1_iframe_at** for writing')
-           
+          
       write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_accel_m2_iframe_at',no_backward_iframe,'.bin'
       open(unit=IOUT_UNDO_ATT+300,file=trim(OUTPUT_FILES)//outputname, &
          status='unknown',form='unformatted',action='write',iostat=ier) 
@@ -223,7 +250,7 @@
         open(unit=IOUT_UNDO_ATT,file=trim(OUTPUT_FILES)//outputname, &
         status='unknown',form='unformatted',action='write',iostat=ier) 
         if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m2_iframe_at** for writing')
-             if(write_field_at_frames .and. ( .not. for_m1)) then 
+             if(write_field_at_frames .and. (.not. for_m1)) then
              !---------
              if(no_backward_iframe==000101 .or. no_backward_iframe==000301 .or. no_backward_iframe==000501  &
              .or. no_backward_iframe==000701 .or. no_backward_iframe==000901) then ! write one time frame for ploting,
@@ -240,13 +267,19 @@
    endif
  else if (.not. Full_Hessian_by_Wavefield_Stored) then ! the original version
     if(SIMULATION_TYPE==1) then 
-      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_iframe,'.bin'
+      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m1_iframe_at',no_backward_iframe,'.bin' ! or m2
       open(unit=IOUT_UNDO_ATT,file=trim(OUTPUT_FILES)//outputname, &
            status='unknown',form='unformatted',action='write',iostat=ier) 
       if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_iframe_at** for writing')
+
+      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_accel_m1_iframe_at',no_backward_iframe,'.bin'  ! or m2
+      open(unit=IOUT_UNDO_ATT+200,file=trim(OUTPUT_FILES)//outputname, &
+         status='unknown',form='unformatted',action='write',iostat=ier) 
+      if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_accel_m1_iframe_at** for writing')
+          
          
     else if(SIMULATION_TYPE==3) then !lucas, save for adjoint field
-      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m2_iframe_at',no_backward_iframe,'.bin'
+      write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_iframe_at',no_backward_iframe,'.bin'
       open(unit=IOUT_UNDO_ATT,file=trim(OUTPUT_FILES)//outputname, &
            status='unknown',form='unformatted',action='write',iostat=ier) 
       if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_iframe_at** for writing')
@@ -325,13 +358,21 @@
          !write(6,*) 'it and no_backward_iframe',it,no_backward_iframe
          !write(6,*) 'no_backward_Nframes',no_backward_Nframes
          !write(IOUT_UNDO_ATT,asynchronous='yes',pos=offset) no_backward_displ_buffer(:,:) ! lucas: for fortran2003
-         write(IOUT_UNDO_ATT) no_backward_displ_buffer
+         write(IOUT_UNDO_ATT) no_backward_displ_buffer(:,:)
          close(IOUT_UNDO_ATT)
       endif!-----------------------------------------------------------------------------
      else !lucas, the old codes
+       if(SIMULATION_TYPE==1) then !==========
         no_backward_displ_buffer(:,:) = displ_elastic(:,:) 
-        write(IOUT_UNDO_ATT) no_backward_displ_buffer
+        write(IOUT_UNDO_ATT) no_backward_displ_buffer(:,:)
+        write(IOUT_UNDO_ATT+200) accel_elastic(:,:)
         close(IOUT_UNDO_ATT)
+        close(IOUT_UNDO_ATT+200)
+       else if(SIMULATION_TYPE==3) then
+         no_backward_displ_buffer(:,:) = displ_elastic(:,:) 
+         write(IOUT_UNDO_ATT) no_backward_displ_buffer(:,:)
+         close(IOUT_UNDO_ATT)
+       endif !==================================
      endif
 
        

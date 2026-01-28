@@ -62,7 +62,7 @@
     !! DK DK and replaced with the implementation of an analytical plane wave
     !! DK DK     write(IMAIN,*) 'Reading initial fields from external file...'
     write(IMAIN,*) 'Implementing an analytical initial plane wave...'
-    write(IMAIN,*)
+    write(IMAIN,*) 'lucas check f0_source=',f0_source
     call flush_IMAIN()
   endif
 

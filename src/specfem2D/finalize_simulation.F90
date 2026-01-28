@@ -47,6 +47,7 @@
   integer :: i,ispec,j,iglob
   integer :: ier
   real(kind=4),dimension(:,:,:),allocatable :: rho_save, vp_save, vs_save, kappa_save, x_save, z_save, Qkappa_save,Qmu_save
+  real(kind=4),dimension(:,:,:),allocatable :: rho_save_m2, vp_save_m2,vs_save_m2, Qkappa_save_m2,Qmu_save_m2 ! CTD-SEM
   double precision :: mul_unrelaxed_elastic,lambdal_unrelaxed_elastic
   character(len=MAX_STRING_LEN) :: inputname,outputname,outputname2
   ! 1. lucas
@@ -115,13 +116,66 @@
           x_save(i,j,ispec) = coord(1,iglob)
           z_save(i,j,ispec) = coord(2,iglob)
           if (ATTENUATION_VISCOACOUSTIC) Qkappa_save(i,j,ispec) = QKappa_attenuation(kmato(ispec))
-          if (ATTENUATION_VISCOELASTIC) then
+
+          if (ATTENUATION_VISCOELASTIC) then !
             Qkappa_save(i,j,ispec) = QKappa_attenuation(kmato(ispec))
             Qmu_save(i,j,ispec) = Qmu_attenuation(kmato(ispec))
+
+            if (assign_external_model) then !------only added for the visco-ela
+              Qkappa_save(i,j,ispec) = QKappa_attenuationext(i,j,ispec)
+              Qmu_save(i,j,ispec) = Qmu_attenuationext(i,j,ispec)
+            endif !-----------------------------------------------------
+
           endif
         enddo
       enddo
     enddo
+
+   !lucas add this for m2-------------------------------------------------------------------------------------------
+    if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then
+      ! allocates temporary arrays for file storage
+      allocate(rho_save_m2(NGLLX,NGLLZ,nspec),stat=ier)
+      if (ier /= 0) call exit_MPI(myrank, 'error allocating save model arrays 01_m2')
+
+      allocate(vp_save_m2(NGLLX,NGLLZ,nspec),stat=ier)
+      if (ier /= 0) call exit_MPI(myrank, 'error allocating save model arrays 02_m2')
+
+      allocate(vs_save_m2(NGLLX,NGLLZ,nspec),stat=ier)
+      if (ier /= 0) call exit_MPI(myrank, 'error allocating save model arrays 03_m2')
+
+      if (ATTENUATION_VISCOACOUSTIC) then
+        allocate(Qkappa_save_m2(NGLLX,NGLLZ,nspec),stat=ier)
+        if (ier /= 0) call exit_MPI(myrank, 'error allocating save model arrays 07_m2')
+      endif
+
+      if (ATTENUATION_VISCOELASTIC) then
+        if (ATTENUATION_VISCOACOUSTIC) call exit_MPI(myrank, &
+                    'Not possible yet to save model with both acoustic and elastic attenuation')
+        allocate(Qkappa_save_m2(NGLLX,NGLLZ,nspec),Qmu_save_m2(NGLLX,NGLLZ,nspec),stat=ier)
+        if (ier /= 0) call exit_MPI(myrank, 'error allocating save model arrays 08_m2')
+      endif
+
+      do ispec= 1,nspec
+        do j = 1,NGLLZ
+          do i = 1,NGLLX
+            if (assign_external_model) then
+              vp_save_m2(i,j,ispec) = vpext_m2(i,j,ispec)
+              vs_save_m2(i,j,ispec) = vsext_m2(i,j,ispec)
+              rho_save_m2(i,j,ispec) = rhoext_m2(i,j,ispec)
+            endif
+
+            if (ATTENUATION_VISCOACOUSTIC) Qkappa_save_m2(i,j,ispec) = QKappa_attenuationext_m2(i,j,ispec)
+            if (ATTENUATION_VISCOELASTIC) then
+              Qkappa_save_m2(i,j,ispec) = QKappa_attenuationext_m2(i,j,ispec)
+              Qmu_save_m2(i,j,ispec) = Qmu_attenuationext_m2(i,j,ispec)
+            endif
+          enddo
+        enddo
+      enddo
+
+    endif ! CTD-SEM end 
+   !----------------------------------------------------------------------------------------------------------------
+
 
     ! SMNSR For compatibility with NUMBER_OF_SIMULTANEOUS_RUNS we have to change the lines trim(IN_DATA_FILES)//'proc'
 
@@ -212,6 +266,67 @@
         close(172)
       endif
 
+      ! lucas added this for saving gll models for m2---------------------------------------
+      if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then !lucas, CTD-SEM
+        ! binary and GLL format
+        write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_rho_m2.bin'
+        open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+        if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_rho_m2.bin')
+        write(172) rho_save_m2
+        close(172)
+        write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_vp_m2.bin'
+        open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+        if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_vp_m2.bin')
+        write(172) vp_save_m2
+        close(172)
+        write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_vs_m2.bin'
+        open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+        if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_vs_m2.bin')
+        write(172) vs_save_m2
+        close(172)
+      !  write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_x.bin'
+      !  open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+      !  if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_x.bin')
+      !  write(172) x_save
+      !  close(172)
+      !  write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_z.bin'
+      !  open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+      !  if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_z.bin')
+      !  write(172) z_save
+      !  close(172)
+
+      !  write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_jacobian.bin'
+      !  open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+      !  if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_jacobian.bin')
+      !  write(172) jacobian
+      !  close(172)
+
+        if (ATTENUATION_VISCOACOUSTIC) then
+          write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_Qkappa_m2.bin'
+          open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+          if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_Qkappa_m2.bin')
+          write(172) Qkappa_save_m2
+          close(172)
+        endif
+
+        if (ATTENUATION_VISCOELASTIC) then
+          write(outputname,'(a,i6.6,a)') trim(IN_DATA_FILES)//'proc',myrank,'_Qkappa_m2.bin'
+          open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+          if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_Qkappa_m2.bin')
+          write(172) Qkappa_save_m2
+          close(172)
+
+          write(outputname,'(a,i6.6,a)')trim(IN_DATA_FILES)//'proc',myrank,'_Qmu_m2.bin'
+          open(unit=172,file=outputname,status='unknown',form='unformatted',iostat=ier)
+          if (ier /= 0) call exit_MPI(myrank,'Error opening model file proc**_Qmu_m2.bin')
+          write(172) Qmu_save_m2
+          close(172)
+        endif
+
+      endif ! end for CTD-SEM
+      !-------------------------------------------------------------------------------------
+
+
     else
       call stop_the_code('Save Model not implemented for external and tomo')
     endif !Type of model
@@ -220,7 +335,7 @@
 
   ! 2. lucas 
   ! For this mode, the forward model has been saved differently
-  if ((.not. NO_BACKWARD_RECONSTRUCTION) .or. NO_BACKWARD_RECONSTRUCTION) then
+  if (((.not. NO_BACKWARD_RECONSTRUCTION) .or. NO_BACKWARD_RECONSTRUCTION) .and. (.not. ATTENUATION_VISCOELASTIC)) then !lucas, add ATTENUATION_VISCOELASTIC, need to check when PML
 
     ! stores absorbing boundary contributions into files
     if (SAVE_FORWARD .and. SIMULATION_TYPE == 1 .and. STACEY_ABSORBING_CONDITIONS) then
@@ -405,8 +520,9 @@
           close(35)
           close(36)
         endif
-      endif
-    endif
+
+      endif !lucas, any_poroelastic
+    endif ! lucas, SAVE_FORWARD .and. SIMULATION_TYPE == 1 .and. STACEY_ABSORBING_CONDITIONS
 
     ! PML
     if (anyabs_glob .and. SAVE_FORWARD .and. SIMULATION_TYPE == 1 .and. PML_BOUNDARY_CONDITIONS) then

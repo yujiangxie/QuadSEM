@@ -51,6 +51,9 @@ module model_tomography_par
   double precision, dimension(:,:), allocatable :: vp_tomo,vs_tomo,rho_tomo
   double precision, dimension(:,:), allocatable :: vp_tomo_m2,vs_tomo_m2,rho_tomo_m2 !lucas. CTD-SEM
 
+  double precision, dimension(:,:), allocatable :: Qkappa_tomo, Qmu_tomo !lucas. CTD-SEM with attenuation
+  double precision, dimension(:,:), allocatable :: Qkappa_tomo_m2, Qmu_tomo_m2 !lucas. CTD-SEM with attenuation
+
   ! models entries !lucas, CTD-SEM
   integer :: NX,NZ, NX_m2,NZ_m2 
   integer :: nrecord, nrecord_m2
@@ -58,6 +61,9 @@ module model_tomography_par
   ! min/max statistics
   double precision :: VP_MIN,VS_MIN,RHO_MIN,VP_MAX,VS_MAX,RHO_MAX
   double precision :: VP_MIN_m2,VS_MIN_m2,RHO_MIN_m2,VP_MAX_m2,VS_MAX_m2,RHO_MAX_m2 ! lucas, CTD-SEM
+
+  double precision :: Qkappa_MIN,Qmu_MIN,Qkappa_MAX,Qmu_MAX ! lucas, CTD-SEM for attenuation
+  double precision :: Qkappa_MIN_m2,Qmu_MIN_m2,Qkappa_MAX_m2,Qmu_MAX_m2 ! lucas, CTD-SEM for attenuation
 
 end module model_tomography_par
 
@@ -319,7 +325,10 @@ end module interpolation
                        QKappa_attenuation,Qmu_attenuation,anisotropy, &
                        QKappa_attenuationext,Qmu_attenuationext,poroelastcoef,density, &
                        c11ext,c13ext,c15ext,c33ext,c35ext,c55ext,c12ext,c23ext,c25ext,c22ext, &
-                       CTD_SEM, Full_Hessian_by_Wavefield_Stored !lucas, CTD-SEM
+                       CTD_SEM, Full_Hessian_by_Wavefield_Stored, & !lucas, CTD-SEM
+                       ATTENUATION_VISCOELASTIC, & !lucas, CTD-SEM with attenuation, QKappa_attenuation_m2 and Qmu_attenuation_m2 are not used
+                       QKappa_attenuationext_m2,Qmu_attenuationext_m2 !lucas, CTD-SEM with attenuation
+
 
   use specfem_par, only: myrank,TOMOGRAPHY_FILE,TOMOGRAPHY_FILE_m2 !lucas, CTD-SEM
 
@@ -353,6 +362,10 @@ end module interpolation
   ! default no attenuation
   QKappa_attenuationext(:,:,:) = 9999.d0
   Qmu_attenuationext(:,:,:) = 9999.d0
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then
+   QKappa_attenuationext_m2(:,:,:) = 9999.d0
+   Qmu_attenuationext_m2(:,:,:) = 9999.d0
+  endif
 
   ! default no anisotropy
   c11ext(:,:,:) = 0.d0
@@ -379,12 +392,20 @@ end module interpolation
           rhoext(i,j,ispec) = interpolate(NX, x_tomo, NZ, z_tomo, rho_tomo, xmesh, zmesh,TINYVAL)
           vpext(i,j,ispec) = interpolate(NX, x_tomo, NZ, z_tomo, vp_tomo, xmesh, zmesh,TINYVAL)
           vsext(i,j,ispec) = interpolate(NX, x_tomo, NZ, z_tomo, vs_tomo, xmesh, zmesh,TINYVAL)
-          
+          if (ATTENUATION_VISCOELASTIC) then !lucas added it for attenuation from external model
+           QKappa_attenuationext(i,j,ispec) =interpolate(NX, x_tomo, NZ, z_tomo, Qkappa_tomo, xmesh, zmesh,TINYVAL)
+           Qmu_attenuationext(i,j,ispec) =   interpolate(NX, x_tomo, NZ, z_tomo, Qmu_tomo, xmesh, zmesh,TINYVAL)
+          endif
+
           if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then
           ! 1. lucas, CTD-SEM method, here rhoext_m2 is, e.g., rho + delta rho
             rhoext_m2(i,j,ispec) = interpolate(NX_m2, x_tomo_m2, NZ_m2, z_tomo_m2, rho_tomo_m2, xmesh, zmesh,TINYVAL)
             vpext_m2(i,j,ispec) = interpolate(NX_m2, x_tomo_m2, NZ_m2, z_tomo_m2, vp_tomo_m2, xmesh, zmesh,TINYVAL)
             vsext_m2(i,j,ispec) = interpolate(NX_m2, x_tomo_m2, NZ_m2, z_tomo_m2, vs_tomo_m2, xmesh, zmesh,TINYVAL)
+            if (ATTENUATION_VISCOELASTIC) then !lucas added it for attenuation from external model
+             QKappa_attenuationext_m2(i,j,ispec) =interpolate(NX, x_tomo, NZ, z_tomo, Qkappa_tomo_m2, xmesh, zmesh,TINYVAL)
+             Qmu_attenuationext_m2(i,j,ispec) =   interpolate(NX, x_tomo, NZ, z_tomo, Qmu_tomo_m2, xmesh, zmesh,TINYVAL)
+            endif
           endif
 
          
@@ -407,14 +428,15 @@ end module interpolation
           anisotropy(9,kmato(ispec)) = c25ext(i,j,ispec)
           anisotropy(10,kmato(ispec)) = c22ext(i,j,ispec)
 
-          QKappa_attenuation(kmato(ispec)) = QKappa_attenuationext(i,j,ispec)
+          QKappa_attenuation(kmato(ispec)) = QKappa_attenuationext(i,j,ispec) ! this only does not need in the code since when used external model, the later is used.
           Qmu_attenuation(kmato(ispec)) = Qmu_attenuationext(i,j,ispec)
-          ! lucas, CTD-SEM, no attenuation implementaion yet, but easy to do
-          !QKappa_attenuation(kmato(ispec)) = QKappa_attenuationext_m2(i,j,ispec) ?
-          !Qmu_attenuation(kmato(ispec)) = Qmu_attenuationext_m2(i,j,ispec) ?
+!          if (CTD_SEM .and. ATTENUATION_VISCOELASTIC) then !lucas added it
+!          QKappa_attenuation_m2(kmato(ispec)) = QKappa_attenuationext_m2(i,j,ispec) 
+!          Qmu_attenuation_m2(kmato(ispec)) = Qmu_attenuationext_m2(i,j,ispec) 
+!          endif
 
         else
-          ! Internal model
+          ! Internal model, lucas: to get external model from internal model, not used in my code
            rhoext(i,j,ispec) = density(1,kmato(ispec))
            vpext(i,j,ispec) = sqrt(poroelastcoef(3,1,kmato(ispec))/rhoext(i,j,ispec))
            vsext(i,j,ispec) = sqrt(poroelastcoef(2,1,kmato(ispec))/rhoext(i,j,ispec))
@@ -494,7 +516,7 @@ end module interpolation
 !  to END_Z, with step of SPACING_Z).
 ! ----------------------------------------------------------------------------------------
 
-  use specfem_par, only: myrank,TOMOGRAPHY_FILE
+  use specfem_par, only: myrank,TOMOGRAPHY_FILE, ATTENUATION_VISCOELASTIC, CTD_SEM ! lucas added ATTENUATION_VISCOELASTIC and CTD_SEM for attenuation
 
   use model_tomography_par
   use constants, only: IIN,IMAIN
@@ -506,6 +528,7 @@ end module interpolation
   character(len=150) :: string_read
 
   double precision, dimension(:), allocatable :: x_tomography,z_tomography,vp_tomography,vs_tomography,rho_tomography
+  double precision, dimension(:), allocatable :: Qkappa_tomography,Qmu_tomography ! lucas added for attenuation
 
   ! opens file for reading
   open(unit=IIN,file=trim(TOMOGRAPHY_FILE),status='old',action='read',iostat=ier)
@@ -544,6 +567,10 @@ end module interpolation
   call tomo_read_next_line(IIN,string_read)
   read(string_read,*)  VP_MIN,VP_MAX,VS_MIN,VS_MAX,RHO_MIN,RHO_MAX
 
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+   read(string_read,*)  VP_MIN,VP_MAX,VS_MIN,VS_MAX,RHO_MIN,RHO_MAX,Qkappa_MIN,Qkappa_MAX,Qmu_MIN,Qmu_MAX !lucas added for Qkappa and Qmu
+  endif
+
   ! Determines total maximum number of element records
   nrecord = int(NX*NZ)
 
@@ -552,6 +579,13 @@ end module interpolation
            rho_tomography(nrecord),stat=ier)
   allocate(x_tomo(NX),z_tomo(NZ),vp_tomo(NX,NZ),vs_tomo(NX,NZ),rho_tomo(NX,NZ),stat=ier)
   if (ier /= 0) call exit_MPI(myrank,'not enough memory to allocate tomo arrays')
+  !---
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+    allocate(Qkappa_tomography(nrecord),Qmu_tomography(nrecord),stat=ier)
+    allocate(Qkappa_tomo(NX,NZ),Qmu_tomo(NX,NZ),stat=ier)
+    if (ier /= 0) call exit_MPI(myrank,'not enough memory to allocate attenuation tomo arrays')
+  endif
+  !---
 
   ! Checks the number of records for points definition while storing them
   irecord = 0
@@ -559,6 +593,12 @@ end module interpolation
     call tomo_read_next_line(IIN,string_read)
     read(string_read,*) x_tomography(irecord+1),z_tomography(irecord+1), &
                         vp_tomography(irecord+1),vs_tomography(irecord+1),rho_tomography(irecord+1)
+
+    if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+     read(string_read,*) x_tomography(irecord+1),z_tomography(irecord+1), &
+                        vp_tomography(irecord+1),vs_tomography(irecord+1),rho_tomography(irecord+1),&
+                        Qkappa_tomography(irecord+1),Qmu_tomography(irecord+1) 
+    endif
 
     if (irecord < NX) x_tomo(irecord+1) = x_tomography(irecord+1)
 
@@ -572,6 +612,12 @@ end module interpolation
       vp_tomo(i,j) = vp_tomography(NX*(j-1)+i)
       vs_tomo(i,j) = vs_tomography(NX*(j-1)+i)
       rho_tomo(i,j) = rho_tomography(NX*(j-1)+i)
+
+      if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+       Qkappa_tomo(i,j) = Qkappa_tomography(NX*(j-1)+i)
+       Qmu_tomo(i,j) = Qmu_tomography(NX*(j-1)+i)
+      endif
+
     enddo
   enddo
 
@@ -592,13 +638,17 @@ end module interpolation
   close(IIN)
   deallocate(x_tomography,z_tomography,vp_tomography,vs_tomography,rho_tomography)
 
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+   deallocate(Qkappa_tomography,Qmu_tomography)
+  endif
+
   end subroutine read_tomo_file
 
  !!-------------------------------------------CTD-SEM for read m2----------------------------
 
   subroutine read_tomo_file_m2() ! lucas, CTD-SEM, copy from the above
 
-  use specfem_par, only: myrank,TOMOGRAPHY_FILE_m2
+  use specfem_par, only: myrank,TOMOGRAPHY_FILE_m2, ATTENUATION_VISCOELASTIC, CTD_SEM ! lucas added ATTENUATION_VISCOELASTIC and CTD_SEM for attenuation
 
   use model_tomography_par
   use constants, only: IIN,IMAIN
@@ -610,6 +660,7 @@ end module interpolation
   character(len=150) :: string_read
 
   double precision, dimension(:), allocatable :: x_tomography_m2,z_tomography_m2,vp_tomography_m2,vs_tomography_m2,rho_tomography_m2
+  double precision, dimension(:), allocatable :: Qkappa_tomography_m2,Qmu_tomography_m2 ! lucas added for attenuation
 
   ! opens file for reading
   open(unit=IIN,file=trim(TOMOGRAPHY_FILE_m2),status='old',action='read',iostat=ier) ! lucas, CTD-SEM
@@ -647,6 +698,11 @@ end module interpolation
   ! --------------------------------------------------------------------------------------
   call tomo_read_next_line(IIN,string_read)
   read(string_read,*)  VP_MIN_m2,VP_MAX_m2,VS_MIN_m2,VS_MAX_m2,RHO_MIN_m2,RHO_MAX_m2 ! lucas, CTD-SEM
+  
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+   read(string_read,*)  VP_MIN_m2,VP_MAX_m2,VS_MIN_m2,VS_MAX_m2,RHO_MIN_m2,RHO_MAX_m2, &
+                        Qkappa_MIN_m2,Qkappa_MAX_m2,Qmu_MIN_m2,Qmu_MAX_m2 !lucas added for Qkappa and Qmu
+  endif
 
   ! Determines total maximum number of element records
   nrecord_m2 = int(NX_m2*NZ_m2)
@@ -657,12 +713,26 @@ end module interpolation
   allocate(x_tomo_m2(NX_m2),z_tomo_m2(NZ_m2),vp_tomo_m2(NX_m2,NZ_m2),vs_tomo_m2(NX_m2,NZ_m2),rho_tomo_m2(NX_m2,NZ_m2),stat=ier)
   if (ier /= 0) call exit_MPI(myrank,'not enough memory to allocate tomo_m2 arrays')
 
+    !---
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+    allocate(Qkappa_tomography_m2(nrecord_m2),Qmu_tomography_m2(nrecord_m2),stat=ier)
+    allocate(Qkappa_tomo_m2(NX_m2,NZ_m2),Qmu_tomo_m2(NX_m2,NZ_m2),stat=ier)
+    if (ier /= 0) call exit_MPI(myrank,'not enough memory to allocate attenuation tomo arrays')
+  endif
+  !---
+
   ! Checks the number of records for points definition while storing them
   irecord = 0
   do while (irecord < nrecord_m2)
     call tomo_read_next_line(IIN,string_read)
     read(string_read,*) x_tomography_m2(irecord+1),z_tomography_m2(irecord+1), &
                         vp_tomography_m2(irecord+1),vs_tomography_m2(irecord+1),rho_tomography_m2(irecord+1)
+
+    if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+     read(string_read,*) x_tomography_m2(irecord+1),z_tomography_m2(irecord+1), &
+                        vp_tomography_m2(irecord+1),vs_tomography_m2(irecord+1),rho_tomography_m2(irecord+1),&
+                        Qkappa_tomography_m2(irecord+1),Qmu_tomography_m2(irecord+1) 
+    endif
 
     if (irecord < NX_m2) x_tomo_m2(irecord+1) = x_tomography_m2(irecord+1)
 
@@ -677,6 +747,11 @@ end module interpolation
       vp_tomo_m2(i,j) = vp_tomography_m2(NX_m2*(j-1)+i)
       vs_tomo_m2(i,j) = vs_tomography_m2(NX_m2*(j-1)+i)
       rho_tomo_m2(i,j) = rho_tomography_m2(NX_m2*(j-1)+i)
+
+      if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+       Qkappa_tomo_m2(i,j) = Qkappa_tomography_m2(NX_m2*(j-1)+i)
+       Qmu_tomo_m2(i,j) = Qmu_tomography_m2(NX_m2*(j-1)+i)
+      endif
     enddo
   enddo
 
@@ -696,6 +771,10 @@ end module interpolation
   ! closes file
   close(IIN)
   deallocate(x_tomography_m2,z_tomography_m2,vp_tomography_m2,vs_tomography_m2,rho_tomography_m2)
+
+  if(CTD_SEM .and. ATTENUATION_VISCOELASTIC) then ! lucas added for attenuation
+   deallocate(Qkappa_tomography_m2,Qmu_tomography_m2)
+  endif
 
   end subroutine read_tomo_file_m2
 

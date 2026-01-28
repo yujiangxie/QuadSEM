@@ -509,7 +509,8 @@
             sigma_xz = c15*dux_dxl(i,j) + c35*duz_dzl(i,j) + c55*(duz_dxl(i,j) + dux_dzl(i,j))
             sigma_zx = sigma_xz
           endif
-        endif
+        endif !end anisotropy
+
         ! 10.6 lucas
         ! weak formulation term based on stress tensor (non-symmetric form)
         xixl = deriv(1,i,j)
@@ -582,6 +583,7 @@
         endif ! AXISYM
       enddo
     enddo  ! end of the loops on the collocation points i,j
+
     !11.lucas
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! update the displacement memory variable
@@ -1532,9 +1534,9 @@
 !! ----------------------------------------------------------lucas, CTD-SEM method -------------------------------------------------------------
 !! Yujiang Lucas Xie
 
-
-  subroutine compute_forces_viscoelastic_m2(accel_elastic_m2,veloc_elastic_m2,displ_elastic_m2,displ_elastic_old_m2,   iphase)  ! lucas, CTD-SEM
-
+  subroutine compute_forces_viscoelastic_m2(accel_elastic_m2,veloc_elastic_m2,displ_elastic_m2,displ_elastic_old_m2, & 
+                                         dux_dxl_old_m2,duz_dzl_old_m2,dux_dzl_plus_duz_dxl_old_m2, & 
+                                         PML_BOUNDARY_CONDITIONS,e1_m2,e11_m2,e13_m2,iphase) ! lucas, CTD-SEM
                                                                                      
 
   ! compute forces for the elastic elements
@@ -1542,10 +1544,11 @@
     ONE,TWO,PI,TINYVAL,FOUR_THIRDS,ALPHA_LDDRK,BETA_LDDRK,C_LDDRK
 
   use specfem_par, only: nglob,assign_external_model,P_SV, &
-                         ibool,ispec_is_elastic, &
+                         ATTENUATION_VISCOELASTIC,nspec_ATT_el,N_SLS, &
+                         ibool,kmato,ispec_is_elastic, &
                          xix,xiz,gammax,gammaz, &
                          jacobian,vpext_m2,vsext_m2,rhoext_m2, & ! lucas, CTD-SEM
-                       ! QKappa_attenuationext_m2,Qmu_attenuationext_m2, & ! lucas, CTD-SEM
+                         QKappa_attenuation,Qmu_attenuation,QKappa_attenuationext_m2,Qmu_attenuationext_m2, & ! lucas, CTD-SEM
                          hprime_xx,hprimewgll_xx,hprime_zz,hprimewgll_zz,wxgll,wzgll, &
                          iglob_is_forced
 
@@ -1564,11 +1567,12 @@
   real(kind=CUSTOM_REAL), dimension(NDIM,nglob),intent(inout) :: accel_elastic_m2 !lucas, CTD-SEM
 
   real(kind=CUSTOM_REAL), dimension(NDIM,nglob),intent(in) :: displ_elastic_old_m2 !lucas, CTD-SEM
- ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dxl_old,duz_dzl_old,dux_dzl_plus_duz_dxl_old
- ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el,N_SLS),intent(inout) :: e1,e11,e13
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dxl_old_m2,duz_dzl_old_m2 !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dzl_plus_duz_dxl_old_m2 !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el,N_SLS),intent(inout) :: e1_m2,e11_m2,e13_m2 !lucas, CTD-SEM
 
   ! CPML coefficients and memory variables
- ! logical,intent(in) :: PML_BOUNDARY_CONDITIONS
+  logical,intent(in) :: PML_BOUNDARY_CONDITIONS
 
   integer,intent(in) :: iphase
 
@@ -1600,7 +1604,7 @@
   real(kind=CUSTOM_REAL), dimension(5,NGLLX,NGLLZ) :: deriv
   real(kind=CUSTOM_REAL) :: xixl,xizl,gammaxl,gammazl,jacobianl
 
-!  real(kind=CUSTOM_REAL) :: e1_sum,e11_sum,e13_sum
+  real(kind=CUSTOM_REAL) :: e1_sum_m2,e11_sum_m2,e13_sum_m2 !lucas, CTD-SEM
 
   ! material properties of the elastic medium
   real(kind=CUSTOM_REAL) :: mul_unrelaxed_elastic_m2,lambdal_unrelaxed_elastic_m2, &
@@ -1619,7 +1623,8 @@
  !                                                   mu_dux_dzl,mu_duz_dxl
  ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ) :: kappa_pml_dux_dxl,kappa_pml_duz_dzl, &
  !                                                   mu_pml_dux_dxl,mu_pml_duz_dzl,mu_pml_dux_dzl,mu_pml_duz_dxl
- ! double precision :: qkappal,qmul
+   double precision :: qkappal,qmul
+   double precision :: qkappal_m2,qmul_m2 !lucas, CTD-SEM
 
   integer :: num_elements,ispec_p
 
@@ -1651,15 +1656,16 @@
     ! only for elastic spectral elements
     if (.not. ispec_is_elastic(ispec)) cycle
     ! 1.lucas
-  !  if (ATTENUATION_VISCOELASTIC) then
-  !    if (.not. assign_external_model) then
-  !      qkappal = QKappa_attenuation(kmato(ispec))
-  !      qmul = Qmu_attenuation(kmato(ispec))
-  !    else
-  !      qkappal = maxval(QKappa_attenuationext(:,:,ispec))
-  !      qmul =  maxval(Qmu_attenuationext(:,:,ispec))
-  !    endif
-  !  endif
+    if (ATTENUATION_VISCOELASTIC) then
+      if (.not. assign_external_model) then
+        qkappal = QKappa_attenuation(kmato(ispec))
+        qmul = Qmu_attenuation(kmato(ispec))
+      else
+        qkappal_m2 = maxval(QKappa_attenuationext_m2(:,:,ispec))
+        qmul_m2 =  maxval(Qmu_attenuationext_m2(:,:,ispec))
+      endif
+    endif
+
     ! 2.lucas
     ! gets local displacement for element
     do j = 1,NGLLZ
@@ -1882,21 +1888,22 @@
 ! vol. 95, p. 597-611 (1988) for two memory-variable mechanisms (page 604).
 
         ! 10.3 lucas
-!        if (ATTENUATION_VISCOELASTIC) then
-!          ! This routine updates the memory variables and with the current grad(displ)
-!          ! and gets the attenuation contribution (in e*_sum variables)
-!          call compute_attenuation_viscoelastic(e1,e11,e13,dux_dxl(i,j),dux_dzl(i,j),duz_dxl(i,j),duz_dzl(i,j), &
-!                                                dux_dxl_old,duz_dzl_old, &
-!                                                dux_dzl_plus_duz_dxl_old,PML_BOUNDARY_CONDITIONS,i,j,ispec, &
-!                                                e1_sum,e11_sum,e13_sum)
-!
-!! use the right formula with 1/N included
-!! i.e. use the unrelaxed moduli here (see Carcione's book, third edition, equation (3.189))
-!          sigma_xx = sigma_xx + lambdalplusmul_unrelaxed_elastic * e1_sum + TWO * mul_unrelaxed_elastic * e11_sum
-!          sigma_xz = sigma_xz + mul_unrelaxed_elastic * e13_sum
-!          sigma_zz = sigma_zz + lambdalplusmul_unrelaxed_elastic * e1_sum - TWO * mul_unrelaxed_elastic * e11_sum
-!          sigma_zx = sigma_xz
-!        endif ! ATTENUATION_VISCOELASTIC
+        if (ATTENUATION_VISCOELASTIC) then
+          ! This routine updates the memory variables and with the current grad(displ)
+          ! and gets the attenuation contribution (in e*_sum variables)
+          call compute_attenuation_viscoelastic_m2(e1_m2,e11_m2,e13_m2,dux_dxl_m2(i,j),dux_dzl_m2(i,j), &
+                                                duz_dxl_m2(i,j),duz_dzl_m2(i,j), &
+                                                dux_dxl_old_m2,duz_dzl_old_m2, &
+                                                dux_dzl_plus_duz_dxl_old_m2,PML_BOUNDARY_CONDITIONS,i,j,ispec, &
+                                                e1_sum_m2,e11_sum_m2,e13_sum_m2) !lucas, CTD-SEM
+
+! use the right formula with 1/N included
+! i.e. use the unrelaxed moduli here (see Carcione's book, third edition, equation (3.189))
+          sigma_xx_m2 = sigma_xx_m2 + lambdalplusmul_unrelaxed_elastic_m2 * e1_sum_m2 + TWO * mul_unrelaxed_elastic_m2 * e11_sum_m2
+          sigma_xz_m2 = sigma_xz_m2 + mul_unrelaxed_elastic_m2 * e13_sum_m2
+          sigma_zz_m2 = sigma_zz_m2 + lambdalplusmul_unrelaxed_elastic_m2 * e1_sum_m2 - TWO * mul_unrelaxed_elastic_m2 * e11_sum_m2
+          sigma_zx_m2 = sigma_xz_m2
+        endif ! ATTENUATION_VISCOELASTIC
 
         ! 10.4 lucas
       !  if (PML_BOUNDARY_CONDITIONS) then
@@ -2323,9 +2330,9 @@
 !! ----------------------------------------------------------m1 -------------------------------------------------------------
 !! Yujiang Lucas Xie
 
-
-  subroutine compute_forces_viscoelastic_m1(accel_elastic_m1,veloc_elastic_m1,displ_elastic_m1,displ_elastic_old_m1, iphase)  ! lucas, CTD-SEM
-
+  subroutine compute_forces_viscoelastic_m1(accel_elastic_m1,veloc_elastic_m1,displ_elastic_m1,displ_elastic_old_m1, &
+                                         dux_dxl_old_m1,duz_dzl_old_m1,dux_dzl_plus_duz_dxl_old_m1, &
+                                         PML_BOUNDARY_CONDITIONS,e1_m1,e11_m1,e13_m1,iphase) ! lucas, CTD-SEM
                                                                                      
 
   ! compute forces for the elastic elements
@@ -2333,10 +2340,11 @@
     ONE,TWO,PI,TINYVAL,FOUR_THIRDS,ALPHA_LDDRK,BETA_LDDRK,C_LDDRK
 
   use specfem_par, only: nglob,assign_external_model,P_SV, &
-                         ibool,ispec_is_elastic, &
+                         ATTENUATION_VISCOELASTIC,nspec_ATT_el,N_SLS, &
+                         ibool,kmato,ispec_is_elastic, &
                          xix,xiz,gammax,gammaz, &
                          jacobian,vpext,vsext,rhoext, & ! lucas, CTD-SEM
-                       ! QKappa_attenuationext_m1,Qmu_attenuationext_m1, & ! lucas, CTD-SEM
+                         QKappa_attenuation,Qmu_attenuation,QKappa_attenuationext,Qmu_attenuationext, & ! lucas, CTD-SEM
                          hprime_xx,hprimewgll_xx,hprime_zz,hprimewgll_zz,wxgll,wzgll, &
                          iglob_is_forced
 
@@ -2355,11 +2363,12 @@
   real(kind=CUSTOM_REAL), dimension(NDIM,nglob),intent(inout) :: accel_elastic_m1 !lucas, CTD-SEM
 
   real(kind=CUSTOM_REAL), dimension(NDIM,nglob),intent(in) :: displ_elastic_old_m1 !lucas, CTD-SEM
- ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dxl_old,duz_dzl_old,dux_dzl_plus_duz_dxl_old
- ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el,N_SLS),intent(inout) :: e1,e11,e13
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dxl_old_m1,duz_dzl_old_m1 !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el),intent(inout) :: dux_dzl_plus_duz_dxl_old_m1 !lucas, CTD-SEM
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ,nspec_ATT_el,N_SLS),intent(inout) :: e1_m1,e11_m1,e13_m1 !lucas, CTD-SEM
 
   ! CPML coefficients and memory variables
- ! logical,intent(in) :: PML_BOUNDARY_CONDITIONS
+  logical,intent(in) :: PML_BOUNDARY_CONDITIONS
 
   integer,intent(in) :: iphase
 
@@ -2391,7 +2400,7 @@
   real(kind=CUSTOM_REAL), dimension(5,NGLLX,NGLLZ) :: deriv
   real(kind=CUSTOM_REAL) :: xixl,xizl,gammaxl,gammazl,jacobianl
 
-!  real(kind=CUSTOM_REAL) :: e1_sum,e11_sum,e13_sum
+  real(kind=CUSTOM_REAL) :: e1_sum_m1,e11_sum_m1,e13_sum_m1 !lucas, CTD-SEM
 
   ! material properties of the elastic medium
   real(kind=CUSTOM_REAL) :: mul_unrelaxed_elastic_m1,lambdal_unrelaxed_elastic_m1, &
@@ -2410,7 +2419,7 @@
  !                                                   mu_dux_dzl,mu_duz_dxl
  ! real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLZ) :: kappa_pml_dux_dxl,kappa_pml_duz_dzl, &
  !                                                   mu_pml_dux_dxl,mu_pml_duz_dzl,mu_pml_dux_dzl,mu_pml_duz_dxl
- ! double precision :: qkappal,qmul
+  double precision :: qkappal,qmul
 
   integer :: num_elements,ispec_p
 
@@ -2442,15 +2451,16 @@
     ! only for elastic spectral elements
     if (.not. ispec_is_elastic(ispec)) cycle
     ! 1.lucas
-  !  if (ATTENUATION_VISCOELASTIC) then
-  !    if (.not. assign_external_model) then
-  !      qkappal = QKappa_attenuation(kmato(ispec))
-  !      qmul = Qmu_attenuation(kmato(ispec))
-  !    else
-  !      qkappal = maxval(QKappa_attenuationext(:,:,ispec))
-  !      qmul =  maxval(Qmu_attenuationext(:,:,ispec))
-  !    endif
-  !  endif
+    if (ATTENUATION_VISCOELASTIC) then
+      if (.not. assign_external_model) then
+        qkappal = QKappa_attenuation(kmato(ispec))
+        qmul = Qmu_attenuation(kmato(ispec))
+      else
+        qkappal = maxval(QKappa_attenuationext(:,:,ispec))
+        qmul =  maxval(Qmu_attenuationext(:,:,ispec))
+      endif
+    endif
+
     ! 2.lucas
     ! gets local displacement for element
     do j = 1,NGLLZ
@@ -2529,6 +2539,7 @@
  !       enddo
  !     endif
  !   endif
+
     !7.lucas
  !   if (PML_BOUNDARY_CONDITIONS) then !viscoelastic PML
  !     if (ispec_is_PML(ispec)) then
@@ -2673,21 +2684,22 @@
 ! vol. 95, p. 597-611 (1988) for two memory-variable mechanisms (page 604).
 
         ! 10.3 lucas
-!        if (ATTENUATION_VISCOELASTIC) then
-!          ! This routine updates the memory variables and with the current grad(displ)
-!          ! and gets the attenuation contribution (in e*_sum variables)
-!          call compute_attenuation_viscoelastic(e1,e11,e13,dux_dxl(i,j),dux_dzl(i,j),duz_dxl(i,j),duz_dzl(i,j), &
-!                                                dux_dxl_old,duz_dzl_old, &
-!                                                dux_dzl_plus_duz_dxl_old,PML_BOUNDARY_CONDITIONS,i,j,ispec, &
-!                                                e1_sum,e11_sum,e13_sum)
-!
-!! use the right formula with 1/N included
-!! i.e. use the unrelaxed moduli here (see Carcione's book, third edition, equation (3.189))
-!          sigma_xx = sigma_xx + lambdalplusmul_unrelaxed_elastic * e1_sum + TWO * mul_unrelaxed_elastic * e11_sum
-!          sigma_xz = sigma_xz + mul_unrelaxed_elastic * e13_sum
-!          sigma_zz = sigma_zz + lambdalplusmul_unrelaxed_elastic * e1_sum - TWO * mul_unrelaxed_elastic * e11_sum
-!          sigma_zx = sigma_xz
-!        endif ! ATTENUATION_VISCOELASTIC
+        if (ATTENUATION_VISCOELASTIC) then
+          ! This routine updates the memory variables and with the current grad(displ)
+          ! and gets the attenuation contribution (in e*_sum variables)
+          call compute_attenuation_viscoelastic_m1(e1_m1,e11_m1,e13_m1,dux_dxl_m1(i,j),dux_dzl_m1(i,j), & 
+                                                duz_dxl_m1(i,j),duz_dzl_m1(i,j), &
+                                                dux_dxl_old_m1,duz_dzl_old_m1, &
+                                                dux_dzl_plus_duz_dxl_old_m1,PML_BOUNDARY_CONDITIONS,i,j,ispec, &
+                                                e1_sum_m1,e11_sum_m1,e13_sum_m1)
+
+! use the right formula with 1/N included
+! i.e. use the unrelaxed moduli here (see Carcione's book, third edition, equation (3.189))
+          sigma_xx_m1 = sigma_xx_m1 + lambdalplusmul_unrelaxed_elastic_m1 * e1_sum_m1 + TWO * mul_unrelaxed_elastic_m1 * e11_sum_m1
+          sigma_xz_m1 = sigma_xz_m1 + mul_unrelaxed_elastic_m1 * e13_sum_m1
+          sigma_zz_m1 = sigma_zz_m1 + lambdalplusmul_unrelaxed_elastic_m1 * e1_sum_m1 - TWO * mul_unrelaxed_elastic_m1 * e11_sum_m1
+          sigma_zx_m1 = sigma_xz_m1
+        endif ! ATTENUATION_VISCOELASTIC
 
         ! 10.4 lucas
       !  if (PML_BOUNDARY_CONDITIONS) then

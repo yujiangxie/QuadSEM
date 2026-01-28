@@ -37,7 +37,7 @@ subroutine iterate_time()
   use mpi
 #endif
 
-  use constants, only: IMAIN,NOISE_SAVE_EVERYWHERE !,OUTPUT_FILES !lucas add OUTPUT_FILES
+  use constants, only: IMAIN,NOISE_SAVE_EVERYWHERE,OUTPUT_FILES !lucas add OUTPUT_FILES
   use specfem_par
   use specfem_par_gpu
   use specfem_par_noise, only: NOISE_TOMOGRAPHY
@@ -50,18 +50,18 @@ subroutine iterate_time()
 ! for the SCOTCH domain decomposer (this is crucial, in particular in the presence of PML elements
 ! and/or for mixed simulations, for instance fluid/solid and so on)
   logical, parameter :: TIME_THE_COST_TO_COMPUTE_WEIGHTS_FOR_THE_DOMAIN_DECOMPOSER = .false.
-  logical, parameter :: save_field = .true. !lucas
+  logical, parameter :: save_field = .false.
 
   ! time
   character(len=8) :: datein
   character(len=10) :: timein
   character(len=5) :: zone
-!  character(len=MAX_STRING_LEN) :: outputname !lucas for save
+  character(len=MAX_STRING_LEN) :: outputname !lucas for save
   integer, dimension(8) :: time_values
   integer :: year,mon,day,hr,minutes,timestamp
-!  integer :: iglob_source_lucas,iglob !lucas
-!  integer :: i, j, ispec,ier !Lucas for save
-!  double precision :: xx, zz !Lucas for save
+  integer :: iglob !lucas
+  integer :: i, j, ispec,ier !Lucas for save
+  double precision :: xx, zz !Lucas for save
 
   real :: start_time_of_time_loop,finish_time_of_time_loop,duration_of_time_loop_in_seconds
 
@@ -167,11 +167,10 @@ subroutine iterate_time()
         if (.not. GPU_MODE) then
 
           call compute_forces_viscoelastic_main() ! lucas: update accelaration and velocity. For SIMULATION_TYPE= 1 and 3, in case of =3, call compute_add_sources_viscoelastic_adjoint()
-
-          if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then !lucas, CTD-SEM
+          if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then !lucas, CTD-SEM, Full_Hessian_by_Wavefield_Stored use here in my old code (the stored method also uses three adjoint simulations simulatneously)
             call compute_forces_viscoelastic_main_m2()
             if(compute_appro_Hessian) then 
-              call compute_forces_viscoelastic_main_m1() !for approximate Hessian
+              call compute_forces_viscoelastic_main_m1() !lucas for approximate Hessian, compute_appro_Hessian set to false in the foward simulation
             endif           
           endif
 
@@ -187,6 +186,7 @@ subroutine iterate_time()
           if (any_elastic) call compute_forces_viscoelastic_GPU()
         endif
       endif
+          
 
       ! poroelastic domains
       if (POROELASTIC_SIMULATION) then
@@ -211,61 +211,61 @@ subroutine iterate_time()
     endif
 
     !lucas add for save backward and adjoint fields to check===================
-!  if(CTD_SEM .and. save_field) then !lucas, not being used in old specfem2D codes since here we have "displ_elastic_m2" that only be allocated when have CTD-SEM or the stored method.
-!    no_backward_iframe=it
-!    if(no_backward_iframe==001001 .or. no_backward_iframe==003001 .or. no_backward_iframe==005001  &
-!          .or. no_backward_iframe==007001 .or. no_backward_iframe==009001) then ! write one time frame for ploting, 1000, 3000, 5000, 7000, 9000 steps
-!          if(SIMULATION_TYPE == 1) then
-!          write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m1_iframe_at',no_backward_iframe,'.dat'
-!          open(unit=no_backward_iframe,file=trim(OUTPUT_FILES)//outputname, &
-!          status='unknown',iostat=ier)
-!          if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_m1_iframe_at** for .dat writing')
-!          !----
-!          write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_iframe,'.dat'
-!          open(unit=no_backward_iframe+100,file=trim(OUTPUT_FILES)//outputname, &
-!          status='unknown',iostat=ier)
-!          if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_m2_iframe_at** for .dat writing')
-!          else
-!          !----
-!          write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_iframe_at',no_backward_iframe,'.dat'
-!          open(unit=no_backward_iframe+200,file=trim(OUTPUT_FILES)//outputname, &
-!          status='unknown',iostat=ier)
-!          if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m1_iframe_at** for .dat writing')
-!          !----
-!          write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m2_iframe_at',no_backward_iframe,'.dat'
-!          open(unit=no_backward_iframe+300,file=trim(OUTPUT_FILES)//outputname, &
-!          status='unknown',iostat=ier)
-!          if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m2_iframe_at** for .dat writing')
-!          !----
-!          write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_approxH_iframe_at',no_backward_iframe,'.dat'
-!          open(unit=no_backward_iframe+400,file=trim(OUTPUT_FILES)//outputname, &
-!          status='unknown',iostat=ier)
-!          if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m1_approxH_iframe_at** for .dat writing')
-!          endif
-!    endif
+    if(save_field) then
+    no_backward_iframe=it
+    if(no_backward_iframe==001001 .or. no_backward_iframe==003001 .or. no_backward_iframe==005001  &
+          .or. no_backward_iframe==007001 .or. no_backward_iframe==009001) then ! write one time frame for ploting, 1000, 3000, 5000, 7000, 9000 steps
+          if(SIMULATION_TYPE == 1) then
+           write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m1_iframe_at',no_backward_iframe,'.dat'
+           open(unit=no_backward_iframe,file=trim(OUTPUT_FILES)//outputname, &
+           status='unknown',iostat=ier) 
+           if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_m1_iframe_at** for .dat writing')
+           !----
+           write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_iframe,'.dat'
+           open(unit=no_backward_iframe+100,file=trim(OUTPUT_FILES)//outputname, &
+           status='unknown',iostat=ier) 
+           if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_m2_iframe_at** for .dat writing')
+          else
+           !----
+           write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_iframe_at',no_backward_iframe,'.dat'
+           open(unit=no_backward_iframe+200,file=trim(OUTPUT_FILES)//outputname, &
+           status='unknown',iostat=ier) 
+           if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m1_iframe_at** for .dat writing')
+           !----
+           write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m2_iframe_at',no_backward_iframe,'.dat'
+           open(unit=no_backward_iframe+300,file=trim(OUTPUT_FILES)//outputname, &
+           status='unknown',iostat=ier) 
+           if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m2_iframe_at** for .dat writing')
+           !----
+           write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_approxH_iframe_at',no_backward_iframe,'.dat'
+           open(unit=no_backward_iframe+400,file=trim(OUTPUT_FILES)//outputname, &
+           status='unknown',iostat=ier) 
+           if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m1_approxH_iframe_at** for .dat writing')
+          endif
+    endif
 
- !   if(no_backward_iframe==001001 .or. no_backward_iframe==003001 .or. no_backward_iframe==005001  &
- !         .or. no_backward_iframe==007001 .or. no_backward_iframe==009001)then ! write one time frame for ploting,
- !         do ispec = 1, nspec
- !           do j = 1, 5
- !             do i = 1, 5
- !             iglob = ibool(i,j,ispec)
- !                xx = coord(1,iglob)
- !                zz = coord(2,iglob)
- !                ! need to change when Full_Hessian_by_Wavefield_Stored=true
- !                if(SIMULATION_TYPE == 1) then
- !                write(no_backward_iframe,'(4e15.4e4)') xx,zz,displ_elastic(1,iglob),displ_elastic(2,iglob) !u(m1)
- !                write(no_backward_iframe+100,'(4e15.4e4)') xx,zz,displ_elastic_m2(1,iglob),displ_elastic_m2(2,iglob) !u(m2)
- !                else
- !                write(no_backward_iframe+200,'(4e15.4e4)') xx,zz,displ_elastic(1,iglob),displ_elastic(2,iglob) !u*(m1)
- !                write(no_backward_iframe+300,'(4e15.4e4)') xx,zz,displ_elastic_m2(1,iglob),displ_elastic_m2(2,iglob) !u*(m2)
- !                write(no_backward_iframe+400,'(4e15.4e4)') xx,zz,displ_elastic_m1(1,iglob),displ_elastic_m1(2,iglob) !u*(m1) for approx Hessian
- !                endif
- !             enddo
- !           enddo
- !         enddo
- !   endif
- !   endif
+    if(no_backward_iframe==001001 .or. no_backward_iframe==003001 .or. no_backward_iframe==005001  &
+          .or. no_backward_iframe==007001 .or. no_backward_iframe==009001)then ! write one time frame for ploting,
+          do ispec = 1, nspec
+            do j = 1, 5
+              do i = 1, 5
+              iglob = ibool(i,j,ispec)
+                 xx = coord(1,iglob)
+                 zz = coord(2,iglob)
+                 ! need to change when Full_Hessian_by_Wavefield_Stored=true
+                 if(SIMULATION_TYPE == 1) then
+                 write(no_backward_iframe,'(4e15.4e4)') xx,zz,displ_elastic(1,iglob),displ_elastic(2,iglob) !u(m1)
+                 write(no_backward_iframe+100,'(4e15.4e4)') xx,zz,displ_elastic_m2(1,iglob),displ_elastic_m2(2,iglob) !u(m2)
+                 else
+                 write(no_backward_iframe+200,'(4e15.4e4)') xx,zz,displ_elastic(1,iglob),displ_elastic(2,iglob) !u*(m1)
+                 write(no_backward_iframe+300,'(4e15.4e4)') xx,zz,displ_elastic_m2(1,iglob),displ_elastic_m2(2,iglob) !u*(m2)
+                 write(no_backward_iframe+400,'(4e15.4e4)') xx,zz,displ_elastic_m1(1,iglob),displ_elastic_m1(2,iglob) !u*(m1) for approx Hessian
+                 endif
+              enddo
+            enddo
+          enddo
+    endif
+    endif
     !==========================================================================
 
     ! noise simulations
@@ -284,6 +284,7 @@ subroutine iterate_time()
     if (output_energy) then
       call compute_and_output_energy()
     endif
+
     ! computes integrated_energy_field
     if (COMPUTE_INTEGRATED_ENERGY_FIELD) then
       call it_compute_integrated_energy_field_and_output() ! compute the field int_0^t v^2 dt and write it on file if needed
@@ -291,6 +292,44 @@ subroutine iterate_time()
 
     ! loop on all the receivers to compute and store the seismograms
       call write_seismograms() !lucas, the same for forwadrd and adjoint simulation since it uses displ_elastic or displ_elastic_m2
+      
+      
+!      !lucas: for test----------------------------------
+!      iglob_source_lucas=ibool(2,2,ispec_selected_rec(2))
+!      do iglob = 1,nglob
+!       if(myrank==islice_selected_rec(2)) then
+!        if(iglob==iglob_source_lucas) then
+!         if(mod(it,500)==0) then 
+!           write(6,*) 'in iterate_time to print adjoint fields at receiver:'
+!           write(6,*) 'ispec_selected_rec(2) = ',ispec_selected_rec(2)
+!           write(6,*) 'iglob_source_lucas = ',iglob_source_lucas
+!           write(6,*) 'displ_elastic(2,iglob_source_lucas) = u(m1) = ', &
+!                       displ_elastic(2,iglob_source_lucas)  
+!           write(6,*) 'displ_elastic_m2(2,iglob_source_lucas) = u(m2) = ', &
+!                       displ_elastic_m2(2,iglob_source_lucas)  
+!         endif
+!        endif
+!       endif
+!      enddo
+!      !----
+!      iglob_source_lucas=ibool(2,2,ispec_selected_source(1))
+!      do iglob = 1,nglob
+!       if(myrank==islice_selected_source(1)) then
+!        if(iglob==iglob_source_lucas) then
+!         if(mod(it,500)==0) then 
+!           write(6,*) 'in iterate_time to print adjoint fields at source:'
+!           write(6,*) 'ispec_selected_source(1) = ',ispec_selected_source(1)
+!           write(6,*) 'iglob_source_lucas = ',iglob_source_lucas
+!           write(6,*) 'displ_elastic(2,iglob_source_lucas) = u(m1) = ', &
+!                       displ_elastic(2,iglob_source_lucas)  
+!           write(6,*) 'displ_elastic_m2(2,iglob_source_lucas) = u(m2) = ', &
+!                       displ_elastic_m2(2,iglob_source_lucas)  
+!           write(6,*) '--------------------------------------'
+!         endif
+!        endif
+!       endif
+!      enddo
+!       !lucas: for test----------
 
     ! kernels calculation
     if (SIMULATION_TYPE == 3 .and. mod(it,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0) then
@@ -299,7 +338,7 @@ subroutine iterate_time()
     endif
 
     ! display results at given time steps
-    call write_movie_output(.true.)
+    call write_movie_output(.true.) 
 
   enddo ! end of the main time loop
   !------------------------------------------------------------------------------------------------------------------------------------lucas above

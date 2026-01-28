@@ -530,7 +530,7 @@
         call stop_the_code('Updating displacement for PML or ATTENUATION_VISCOELASTIC for CTD-SEM method not implemented yet') !lucas, CTD-SEM
     ! note: TODO - there is an additional factor 1/TWO to the default deltasquareover2 for the acceleration term
     !       find explanations where? Zhinan Xie probably wrote that and should thus know the answer
-    !    displ_elastic_old(:,:) = displ_elastic(:,:) + deltatsquareover2/TWO * accel_elastic(:,:)
+        displ_elastic_old_m2(:,:) = displ_elastic_m2(:,:) + deltatsquareover2/TWO * accel_elastic_m2(:,:)
   endif ! PML
 
   if (USE_ENFORCE_FIELDS) then
@@ -584,7 +584,7 @@
         call stop_the_code('Updating displacement for PML or ATTENUATION_VISCOELASTIC for CTD-SEM method not implemented yet') !lucas, CTD-SEM
     ! note: TODO - there is an additional factor 1/TWO to the default deltasquareover2 for the acceleration term
     !       find explanations where? Zhinan Xie probably wrote that and should thus know the answer
-    !    displ_elastic_old(:,:) = displ_elastic(:,:) + deltatsquareover2/TWO * accel_elastic(:,:)
+        displ_elastic_old_m1(:,:) = displ_elastic_m1(:,:) + deltatsquareover2/TWO * accel_elastic_m1(:,:)
   endif ! PML
 
   if (USE_ENFORCE_FIELDS) then

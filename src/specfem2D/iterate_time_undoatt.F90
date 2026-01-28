@@ -50,6 +50,7 @@
   ! local parameters
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: b_potential_acoustic_buffer
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: b_displ_elastic_buffer,b_accel_elastic_buffer
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: b_displ_elastic_buffer_m2  !lucas, CTD-SEM
   double precision :: sizeval
 
   integer :: it_temp,iframe_kernel,nframes_kernel,size_buffer
@@ -157,10 +158,15 @@
     endif
     if (any_elastic) then
       allocate(b_displ_elastic_buffer(NDIM,nglob,size_buffer),stat=ier)
-      if (ier /= 0 ) call exit_MPI(myrank,'error allocating b_displ_elastic')
+      if (ier /= 0 ) call exit_MPI(myrank,'error allocating b_displ_elastic_buffer')
+      if(CTD_SEM) then !---
+       allocate(b_displ_elastic_buffer_m2(NDIM,nglob,size_buffer),stat=ier)
+       if (ier /= 0 ) call exit_MPI(myrank,'error allocating b_displ_elastic_buffer_m2')
+      endif !---
       if (APPROXIMATE_HESS_KL) allocate(b_accel_elastic_buffer(NDIM,nglob,size_buffer),stat=ier)
       if (ier /= 0 ) call exit_MPI(myrank,'error allocating b_accel_elastic')
     endif
+
   endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -189,8 +195,9 @@
   call cpu_time(start_time_of_time_loop)
 
   ! loops over time subsets
-  do iteration_on_subset = 1, NSUBSET_ITERATIONS
-
+  do iteration_on_subset = 1, NSUBSET_ITERATIONS ! lucas, save and read the start file for each chunk indicated by iteration_on_subset
+     
+    !lucas 1
     ! wavefield storage
     if (SIMULATION_TYPE == 1 .and. SAVE_FORWARD) then
       ! saves forward wavefields
@@ -200,28 +207,30 @@
       ! reads in last stored forward wavefield
       call read_forward_arrays_undoatt()
     endif
-
+    !lucas 2
     ! time loop within this iteration subset
     select case (SIMULATION_TYPE)
+    !lucas 2.1
     case (1)
       ! forward and adjoint simulations
 
       ! increment end of this subset
       if (iteration_on_subset < NSUBSET_ITERATIONS) then
         ! takes full length of subset
-        it_subset_end = NT_DUMP_ATTENUATION
+        it_subset_end = NT_DUMP_ATTENUATION ! lucas,   it_subset_end = the last step of each chunk
       else
         ! loops over remaining steps in last subset
-        it_subset_end = NSTEP - (iteration_on_subset-1)*NT_DUMP_ATTENUATION
+        it_subset_end = NSTEP - (iteration_on_subset-1)*NT_DUMP_ATTENUATION ! lucas, i.e., the left step: mod(NSTEP,NT_DUMP_ATTENUATION)
       endif
       ! checks end index
       if (it_subset_end > NT_DUMP_ATTENUATION) &
         call exit_MPI(myrank,'Error invalid buffer index for undoing attenuation')
 
+      !lucas 2.1.1
       ! subset loop
       ! We don't compute the forward reconstructed wavefield in the loop below
       compute_b_wavefield = .false.
-      do it_of_this_subset = 1, it_subset_end
+      do it_of_this_subset = 1, it_subset_end !--------------------------------------------------------------------------------------------------------FWD in each chunk
 
         it = it + 1
         ! compute current time
@@ -230,19 +239,19 @@
         ! display time step and max of norm of displacement
         if (mod(it,NSTEP_BETWEEN_OUTPUT_INFO) == 0 .or. it == 5 .or. it == NSTEP) call check_stability()
 
-        do i_stage = 1, stage_time_scheme ! is equal to 1 if Newmark because only one stage then
+        do i_stage = 1, stage_time_scheme ! is equal to 1 if Newmark because only one stage then !======================
           ! update_displacement_newmark
           if (GPU_MODE) then
             if (any_acoustic) call update_displacement_newmark_GPU_acoustic(compute_b_wavefield)
           else
-            call update_displ_acoustic_forward()
+            call update_displ_acoustic_forward() ! step1 = update_displ
           endif
-          call update_displ_elastic_forward()
+          call update_displ_elastic_forward() ! lucas, alread done for m1 and m2 when used CTD-SEM
 
           ! acoustic domains
           if (any_acoustic) then
             if (.not. GPU_MODE) then
-              call compute_forces_viscoacoustic_main()
+              call compute_forces_viscoacoustic_main() !step2 = compute_forces
             else ! on GPU
               call compute_forces_viscoacoustic_GPU(compute_b_wavefield)
             endif
@@ -250,8 +259,12 @@
 
           ! elastic domains
           if (any_elastic) call compute_forces_viscoelastic_main()
+          if(CTD_SEM) then !lucas, CTD-SEM, forward for m2
+           if (any_elastic) call compute_forces_viscoelastic_main_m2()
+          endif
+          
 
-        enddo ! i_stage
+        enddo ! i_stage!===================================================================================================
 
         ! computes kinetic and potential energy
         if (OUTPUT_ENERGY .and. mod(it,NTSTEP_BETWEEN_OUTPUT_ENERGY) == 0) call compute_and_output_energy()
@@ -262,8 +275,9 @@
         ! display results at given time steps
         call write_movie_output(compute_b_wavefield)
 
-      enddo ! subset loop
+      enddo ! it_of_this_subset loop------------------------------------------------------------------------------------------------------------------FWD in each chunk
 
+    !lucas 2.2
     case (3)
       ! kernel simulations
       ! intermediate storage of it position
@@ -287,20 +301,21 @@
       !       the newly computed, reconstructed forward wavefields (b_displ_..) get stored in buffers.
 
       iframe_kernel = 0
-
+      !lucas 2.2.1
       ! subset loop
-      do it_of_this_subset = 1, it_subset_end
+      !lucas, need to comment the reconstact FWD out to use the full wavefield storage methd, AAA, also need to comment the BBB out, see below!
+      do it_of_this_subset = 1, it_subset_end !----------------------------------------------------------------------------------reconstract FWD
 
         it = it + 1
         ! We compute the forward reconstructed wavefield first
         compute_b_wavefield = .true.
-        do i_stage = 1, stage_time_scheme
+        do i_stage = 1, stage_time_scheme!---------------------------backward
           ! backward_inner_loop
           ! update_displacement_newmark
           if (GPU_MODE) then
             if (any_acoustic) call update_displacement_newmark_GPU_acoustic(compute_b_wavefield)
           else
-            call update_displ_Newmark_backward()
+            call update_displ_Newmark_backward() !lucas, alread done for m1 and m2 when used CTD-SEM
           endif
 
           ! acoustic domains
@@ -308,17 +323,20 @@
             if (.not. GPU_MODE) then
               call compute_forces_viscoacoustic_main_backward()
             else ! on GPU
-              call compute_forces_viscoacoustic_GPU(compute_b_wavefield)
-            endif
-          endif
+             call compute_forces_viscoacoustic_GPU(compute_b_wavefield)
+           endif
+         endif
 
           ! elastic domains
           if (any_elastic) call compute_forces_viscoelastic_main_backward()
+          if (any_elastic .and. CTD_SEM) then !lucas, CTD-SEM, reconstracting forward fields backward in each chunk in atteunation case
+           call compute_forces_viscoelastic_main_backward_m2()
+          endif
 
-        enddo
+        enddo!--------------------------------------------------------backward
 
         ! stores wavefield in buffers
-        if (mod(NSTEP-it+1,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0) then
+        if (mod(NSTEP-it+1,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0) then !-----store for each chunk
 
           iframe_kernel = iframe_kernel + 1
 
@@ -332,25 +350,30 @@
 
           if (any_elastic) then
             b_displ_elastic_buffer(:,:,iframe_kernel) = b_displ_elastic(:,:)
+            !------
+            if(CTD_SEM) then ! lucas, storing reconstructed field for m2
+              b_displ_elastic_buffer_m2(:,:,iframe_kernel) = b_displ_elastic_m2(:,:)
+            endif
+            !------
             if (APPROXIMATE_HESS_KL) b_accel_elastic_buffer(:,:,iframe_kernel) = b_accel_elastic(:,:)
           endif
 
-        endif
+        endif!--------------------------------------------------------------store for each chunk
 
         ! display results at given time steps
         call write_movie_output(compute_b_wavefield)
 
-      enddo ! subset loop
+      enddo ! it_of_this_subset loop!-------------------------------------------------------------------------------------------- reconstract FWD
 
       ! resets current it position
       it = it_temp
       nframes_kernel = iframe_kernel
       iframe_kernel = 0
       ! adjoint wavefield simulation
-      do it_of_this_subset = 1, it_subset_end
+      do it_of_this_subset = 1, it_subset_end !---------------------------------------------------------------------------------------ADJ
 
         it = it + 1
-        if (mod(it,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0) then
+        if (mod(it,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0) then !------------------XX
 
           iframe_kernel = iframe_kernel + 1
 
@@ -359,21 +382,27 @@
           if (any_acoustic) then
             if (GPU_MODE) then
               call transfer_b_potential_ac_to_device(nglob, &
-                                        b_potential_acoustic_buffer(:,nframes_kernel-iframe_kernel+1),Mesh_pointer)
+                                        b_potential_acoustic_buffer(:,nframes_kernel-iframe_kernel+1),Mesh_pointer) ! lucas, reverse order
             else
               b_potential_acoustic(:) = b_potential_acoustic_buffer(:,nframes_kernel-iframe_kernel+1)
             endif
           endif
-
+          !---lucas, for full wavefield storeage method, need to comment this out,----------BBB
           ! copy the reconstructed wavefield for kernel integration
           if (any_elastic) then
              b_displ_elastic(:,:) = b_displ_elastic_buffer(:,:,nframes_kernel-iframe_kernel+1)
+
+            if(CTD_SEM) then !lucas ------ for m2
+             b_displ_elastic_m2(:,:) = b_displ_elastic_buffer_m2(:,:,nframes_kernel-iframe_kernel+1)
+            endif !------
+
             if (APPROXIMATE_HESS_KL) then
                b_accel_elastic(:,:) = b_accel_elastic_buffer(:,:,nframes_kernel-iframe_kernel+1)
             endif
           endif
+           !---lucas,------------------------------------------------------------------------
 
-        endif ! mod(it,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0
+        endif ! mod(it,NSTEP_BETWEEN_COMPUTE_KERNELS) == 0 !---------------------XX
 
         ! compute current time
         timeval = (it-1) * deltat
@@ -385,7 +414,7 @@
 
         ! we only compute the adjoint wavefield on the next loop
         compute_b_wavefield = .false.
-        do i_stage = 1, stage_time_scheme
+        do i_stage = 1, stage_time_scheme !--------------------adj simulation
           ! adjoint
           ! update_displacement_newmark
           if (GPU_MODE) then
@@ -401,7 +430,7 @@
             potential_acoustic_adj_coupling(:) = potential_acoustic(:)
           endif
 
-          call update_displ_elastic_forward()
+          call update_displ_elastic_forward() !alread done for m1 and m2 when used CTD-SEM
 
 !daniel TODO: not sure if the following below is correct or needs to switch orders
 !             usually one computes first the updated pressure and afterwards computes the elastic domain
@@ -409,6 +438,12 @@
 
           ! main solver for the elastic elements
           if (any_elastic) call compute_forces_viscoelastic_main()
+          if (any_elastic .and. CTD_SEM) then
+             call compute_forces_viscoelastic_main_m2()
+             if(compute_appro_Hessian) then
+             call compute_forces_viscoelastic_main_m1() ! for approximate Hessian
+             endif
+          endif 
 
           ! for coupling with adjoint wavefields, stores temporary old wavefield
           if (coupled_acoustic_elastic) then
@@ -426,7 +461,7 @@
             endif
           endif
 
-        enddo !i_stage
+        enddo !i_stage!-----------------------------------------------adj simulation
 
         ! computes kinetic and potential energy
         if (OUTPUT_ENERGY .and. mod(it,NTSTEP_BETWEEN_OUTPUT_ENERGY) == 0) call compute_and_output_energy()
@@ -440,10 +475,10 @@
         ! display results at given time steps
         call write_movie_output(compute_b_wavefield)
 
-      enddo ! subset loop
+      enddo ! it_of_this_subset loop!-------------------------------------------------------------------------------------------------ADJ
     end select ! SIMULATION_TYPE
 
-  enddo   ! end of main time loop
+  enddo   ! end of main time loop, lucas: end the iteration_on_subset
 
   !
   !---- end of time iteration loop
@@ -476,6 +511,9 @@
     endif
     if (any_elastic) then
       deallocate(b_displ_elastic_buffer)
+      if(CTD_SEM) then !lucas ------ for m2
+       deallocate(b_displ_elastic_buffer_m2)
+      endif!-----------
       if (APPROXIMATE_HESS_KL) deallocate(b_accel_elastic_buffer)
     endif
   endif

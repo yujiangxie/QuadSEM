@@ -164,7 +164,7 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine read_forward_arrays_undoatt()
+  subroutine read_forward_arrays_undoatt() ! lucas added for m2 also
 
 ! reads in saved wavefields
 
@@ -175,6 +175,8 @@
     b_potential_acoustic,b_potential_dot_acoustic,b_potential_dot_dot_acoustic, &
     b_displ_elastic,b_veloc_elastic,b_accel_elastic,b_e1,b_e11,b_e13, &
     b_dux_dxl_old,b_duz_dzl_old,b_dux_dzl_plus_duz_dxl_old,b_e1_acous_sf,b_sum_forces_old, &
+    b_displ_elastic_m2,b_veloc_elastic_m2,b_accel_elastic_m2,b_e1_m2,b_e11_m2,b_e13_m2, & !lucas, CTD-SEM
+    b_dux_dxl_old_m2,b_duz_dzl_old_m2,b_dux_dzl_plus_duz_dxl_old_m2,CTD_SEM, & !lucas, CTD-SEM
     GPU_MODE,nspec_ATT_ac,nglob
 
   use specfem_par_gpu, only: Mesh_pointer
@@ -189,13 +191,24 @@
   ! current subset iteration
   iteration_on_subset_tmp = NSUBSET_ITERATIONS - iteration_on_subset + 1
 
+!  write(6,*) 'lucas reading for time step: iteration_on_subset_tmp = ',iteration_on_subset_tmp
+!  write(6,*) 'lucas reading for NSUBSET_ITERATIONS = ',NSUBSET_ITERATIONS
+
   ! reads in saved wavefield
   write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_save_frame_at',iteration_on_subset_tmp,'.bin'
-
   ! opens corresponding snapshot file for reading
   open(unit=IIN_UNDO_ATT,file=trim(OUTPUT_FILES)//outputname, &
        status='old',action='read',form='unformatted',iostat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_save_frame_at** for reading')
+
+  if(CTD_SEM) then ! lucas add for reading m2 fields
+  ! reads in saved wavefield
+  write(outputname,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_m2_save_frame_at',iteration_on_subset_tmp,'.bin'
+  ! opens corresponding snapshot file for reading
+  open(unit=IIN_UNDO_ATT+1,file=trim(OUTPUT_FILES)//outputname, &
+       status='old',action='read',form='unformatted',iostat=ier)
+  if (ier /= 0 ) call exit_MPI(myrank,'Error opening file proc***_save_frame_at** for reading')
+  endif !---------------------------------------
 
   if (any_acoustic) then
     read(IIN_UNDO_ATT) b_potential_dot_dot_acoustic
@@ -225,8 +238,25 @@
       read(IIN_UNDO_ATT) b_dux_dzl_plus_duz_dxl_old
     endif
   endif
-
   close(IIN_UNDO_ATT)
+
+  if(CTD_SEM) then ! lucas add for m2 ------
+  if (any_elastic) then
+    read(IIN_UNDO_ATT+1) b_accel_elastic_m2
+    read(IIN_UNDO_ATT+1) b_veloc_elastic_m2
+    read(IIN_UNDO_ATT+1) b_displ_elastic_m2
+
+    if (ATTENUATION_VISCOELASTIC) then
+      read(IIN_UNDO_ATT+1) b_e1_m2
+      read(IIN_UNDO_ATT+1) b_e11_m2
+      read(IIN_UNDO_ATT+1) b_e13_m2
+      read(IIN_UNDO_ATT+1) b_dux_dxl_old_m2
+      read(IIN_UNDO_ATT+1) b_duz_dzl_old_m2
+      read(IIN_UNDO_ATT+1) b_dux_dzl_plus_duz_dxl_old_m2
+    endif
+  endif
+  close(IIN_UNDO_ATT+1)
+  endif !------
 
   end subroutine read_forward_arrays_undoatt
 
@@ -242,10 +272,11 @@
     nglob,no_backward_acoustic_buffer,no_backward_displ_buffer, & 
     no_backward_iframe,no_backward_Nframes,GPU_MODE, &
     displ_elastic,b_displ_elastic,it,ibool,islice_selected_rec,ispec_selected_rec, b_displ_elastic_m2,&
-    no_backward_displ_buffer_fwd_um2, no_backward_displ_buffer_adj_um2, & !lucas
-    no_backward_displ_buffer_fwd_du, no_backward_displ_buffer_adj_du, & !lucas
+    no_backward_displ_buffer_fwd_um2, no_backward_displ_buffer_adj_du_m, & !lucas
+    no_backward_displ_buffer_fwd_du, no_backward_displ_buffer_adj_du_s, & !lucas
     Full_Hessian_by_Wavefield_Stored, no_backward_accel_buffer_fwd_du, & !lucas
-    no_backward_accel_buffer_fwd_um1,no_backward_accel_buffer_fwd_um2,b_accel_elastic  !lucas
+    no_backward_accel_buffer_fwd_um1,no_backward_accel_buffer_fwd_um2,b_accel_elastic, & !lucas
+    displ_elastic_m2, displ_elastic_m1 !lucas 
   use specfem_par_gpu, only: Mesh_pointer
 
   implicit none
@@ -253,15 +284,15 @@
   ! local parameters
   integer :: ier1,ier2,buffer_num_async_IO,buffer_num_GPU_transfer ! lucas added ier2
   integer(KIND=8) :: offset
-  character(len=MAX_STRING_LEN) :: outputname1, outputname2, outputname3, outputname4, outputname5 !lucas, or use one filename
+  character(len=MAX_STRING_LEN) :: outputname1, outputname2, outputname4, outputname5 !lucas, or use one filename
   !logical :: file_exists !lucas
   integer :: no_backward_reverse_iframe
   integer :: iglob_source_lucas  !lucas
           
   no_backward_displ_buffer_fwd_um2(:,:) = 0._CUSTOM_REAL  !lucas
-  no_backward_displ_buffer_adj_um2(:,:) = 0._CUSTOM_REAL  !lucas
+  no_backward_displ_buffer_adj_du_m(:,:) = 0._CUSTOM_REAL  !lucas
   no_backward_displ_buffer_fwd_du(:,:) = 0._CUSTOM_REAL  !lucas
-  no_backward_displ_buffer_adj_du(:,:) = 0._CUSTOM_REAL  !lucas
+  no_backward_displ_buffer_adj_du_s(:,:) = 0._CUSTOM_REAL  !lucas
 
   ! lucas: below three lines copied from https://en.wikibooks.org/wiki/Fortran/Fortran_procedures_and_functions
   !intent(in) means that the variable value can enter, but not be changed
@@ -274,7 +305,7 @@
   ! One iteration before, this wavefield is transfered from the RAM to the GPU.
   ! In the text above, an iteration means NSTEP_BETWEEN_COMPUTE_KERNELS iterations of the timeloop.
 
-  no_backward_iframe = no_backward_iframe + 1  ! lucas: this routine in manage_no_backward_reconstruction_io() of the time loop
+  no_backward_iframe = no_backward_iframe + 1  ! lucas: this routine in manage_no_backward_reconstruction_io() of the time loop,  no_backward_iframe=0 set in prepare_timerun()
   ! lucas ----------------
   !if (it == 1) then
   !  write(outputname,'(a,i6.6,a)') 'proc',myrank,'_No_backward_reconstruction_database.bin'
@@ -288,11 +319,11 @@
   !else
   !  wait(IIN_UNDO_ATT)
   !endif 
-  ! lucas ----------------the no_backward_iframe=1 to 10000, no_backward_Nframes=10000
+  ! lucas ----------------the no_backward_iframe=1 to NSTEP, no_backward_Nframes=NSTEP
     no_backward_reverse_iframe = no_backward_Nframes - no_backward_iframe + 2  ! lucas +2 for delta=10*dt, +1 for delta=1*dt
 
-  ! write(6,*) 'no_backward_Nframes, no_backward_iframe, no_backward_reverse_iframe=',no_backward_Nframes,&
-  !                                                           no_backward_iframe,no_backward_reverse_iframe
+!   write(6,*) 'no_backward_Nframes, no_backward_iframe, no_backward_reverse_iframe=',no_backward_Nframes,&
+!                                                             no_backward_iframe,no_backward_reverse_iframe
   
   if(Full_Hessian_by_Wavefield_Stored) then
       !lucas, read for u(m1) and u(m2) for computing Ha(du,u*), where du=u(m2)-u(m1) ----------used in m1
@@ -309,10 +340,10 @@
       !write(6,*) 'read proc***_disp_m2_iframe_at** successful'
 
       !lucas read u(m1) and u*(m2) for computing Hb(u,du*), where du* = u*(m2) - u*(m1)----------used in m1
-      write(outputname3,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m2_iframe_at',no_backward_iframe,'.bin'  ! lucas: keep in mind that the u*(m) is used as its save
-      open(unit=IIN_UNDO_ATT+2,asynchronous='yes',file=trim(OUTPUT_FILES)//outputname3, &
-      status='old',action='read',form='unformatted',iostat=ier2)
-      if (ier2 /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m2_iframe_at** for reading')
+!      write(outputname3,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m2_iframe_at',no_backward_iframe,'.bin'  ! lucas: keep in mind that the u*(m) is used as its save
+!      open(unit=IIN_UNDO_ATT+2,asynchronous='yes',file=trim(OUTPUT_FILES)//outputname3, &
+!      status='old',action='read',form='unformatted',iostat=ier2)
+!      if (ier2 /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m2_iframe_at** for reading')
 
       !for test
      ! write(outputname4,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_adj_disp_m1_iframe_at',no_backward_iframe,'.bin'  ! lucas: keep in mind that the u*(m) is used as its save
@@ -320,8 +351,7 @@
      ! status='old',action='read',form='unformatted',iostat=ier2)
      ! if (ier2 /= 0 ) call exit_MPI(myrank,'Error opening file proc***_adj_disp_m1_iframe_at** for reading')
      
- 
-     ! to store accelaration for computing the density of Ha, and density of Hb--
+      ! to store accelaration for computing the density of Ha, and density of Hb--
       write(outputname4,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_accel_m1_iframe_at',no_backward_reverse_iframe,'.bin'
       open(unit=IIN_UNDO_ATT+3,asynchronous='yes',file=trim(OUTPUT_FILES)//outputname4, &
       status='old',action='read',form='unformatted',iostat=ier1)
@@ -333,9 +363,10 @@
       status='old',action='read',form='unformatted',iostat=ier2)
       if (ier2 /= 0 ) call exit_MPI(myrank,'Error opening file proc***_accel_m2_iframe_at** for reading')
       !write(6,*) 'read proc***_accel_m2_iframe_at** successful'
+      
 
   else ! the old codes
-      write(outputname1,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m2_iframe_at',no_backward_reverse_iframe,'.bin'
+      write(outputname1,'(a,i6.6,a,i6.6,a)') 'proc',myrank,'_disp_m1_iframe_at',no_backward_reverse_iframe,'.bin'
       open(unit=IIN_UNDO_ATT,asynchronous='yes',file=trim(OUTPUT_FILES)//outputname1, &
       status='old',action='read',form='unformatted',iostat=ier1)
       if (ier1 /= 0 ) call exit_MPI(myrank,'Error opening file proc***_disp_iframe_at** for reading')
@@ -390,12 +421,11 @@
       if(Full_Hessian_by_Wavefield_Stored) then
         read(IIN_UNDO_ATT) no_backward_displ_buffer ! lucas: u(m1)
         read(IIN_UNDO_ATT+1) no_backward_displ_buffer_fwd_um2 ! lucas read u(m2) for computing du
-        read(IIN_UNDO_ATT+2) no_backward_displ_buffer_adj_um2 ! lucas read u*(m2) for computing du*
-      ! read(IIN_UNDO_ATT+3) no_backward_displ_buffer_adj_um1 ! lucas read u*(m1) for computing du*
         !for du
         no_backward_displ_buffer_fwd_du = no_backward_displ_buffer_fwd_um2 - no_backward_displ_buffer ! du=u(m2)-u(m1)
         !for du*
-        no_backward_displ_buffer_adj_du = no_backward_displ_buffer_adj_um2 - displ_elastic   ! du*=u*(m2) - u*(m1)
+        no_backward_displ_buffer_adj_du_s = displ_elastic_m1 - displ_elastic   ! du*=u*_s(m1) - u*(m1)
+        no_backward_displ_buffer_adj_du_m = displ_elastic_m2 - displ_elastic   ! du*=u*_m(m2) - u*(m1)
 
        ! read accel for density kernels Ha and Hb
         read(IIN_UNDO_ATT+3) no_backward_accel_buffer_fwd_um1 ! lucas read accel(m1) 
@@ -404,16 +434,13 @@
         no_backward_accel_buffer_fwd_du=no_backward_accel_buffer_fwd_um2-no_backward_accel_buffer_fwd_um1 
         !lucas, for Hb in density kernels
         b_accel_elastic=no_backward_accel_buffer_fwd_um1 
-        
+        !-----
         b_displ_elastic_m2=no_backward_displ_buffer_fwd_um2           
         b_displ_elastic=   no_backward_displ_buffer 
    
       else !lucas, old codes
         read(IIN_UNDO_ATT) no_backward_displ_buffer ! lucas: u(m1)
-       ! read(IIN_UNDO_ATT+1) no_backward_displ_buffer_adj_um2 ! lucas: u*(m2)
-       ! read(IIN_UNDO_ATT+1) no_backward_displ_buffer_adj_um1 ! lucas: u*(m1)
          b_displ_elastic= no_backward_displ_buffer !u(m1) = read in
-       !  no_backward_displ_buffer_adj_du = no_backward_displ_buffer_adj_um2 - displ_elastic ! du*=u*(m2) - u*(m1)
       endif
 
       !=============================user ouput for check==============================
@@ -425,11 +452,11 @@
           write(6,*) 'only valid in du* check at the first receiver location, there are du*, u*(m), u*(m+dm):' 
           write(6,*) 'ispec_selected_source(1) = ',ispec_selected_rec(1)
           write(6,*) 'iglob_source_lucas = ',iglob_source_lucas
-          write(6,*) 'no_backward_displ_buffer_adj_du(2,iglob_source_lucas) = du* = ', &
-                      no_backward_displ_buffer_adj_du(2,iglob_source_lucas) ! lucas: du*
+          write(6,*) 'no_backward_displ_buffer_adj_du_m(2,iglob_source_lucas) = du*_m = ', &
+                      no_backward_displ_buffer_adj_du_m(2,iglob_source_lucas) ! lucas: du*_m
           write(6,*) 'displ_elastic(2,iglob_source_lucas) = u*(m) = ',displ_elastic(2,iglob_source_lucas) !lucas: u*(m)
-          write(6,*) 'no_backward_displ_buffer_adj_um2(2,iglob_source_lucas)= u*(m+dm) = ', & 
-                      no_backward_displ_buffer_adj_um2(2,iglob_source_lucas) ! lucas: u*(m+dm)
+          write(6,*) 'displ_elastic_m2(2,iglob_source_lucas)= u*(m+dm) = ', & 
+                      displ_elastic_m2(2,iglob_source_lucas) ! lucas: u*(m+dm)
           write(6,*) '=============================================='
         endif
       endif
@@ -453,9 +480,16 @@
      endif
      endif
   endif ! end any_elastic
-
-  close(IIN_UNDO_ATT)
-  close(IIN_UNDO_ATT+1)
+  
+  if(Full_Hessian_by_Wavefield_Stored) then
+    close(IIN_UNDO_ATT)
+    close(IIN_UNDO_ATT+1)
+    close(IIN_UNDO_ATT+2)
+    close(IIN_UNDO_ATT+3)
+    close(IIN_UNDO_ATT+4)
+  else
+    close(IIN_UNDO_ATT)
+  endif
   ! lucas ----------------------------------------------------------------------------------------------------
 
    ! start old version here---------------------------------------------------------

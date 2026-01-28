@@ -53,7 +53,7 @@
   if (any_elastic) then
     
     if(CTD_SEM .or. Full_Hessian_by_Wavefield_Stored) then !lucas, CTD-SEM-------
-     call compute_kernels_el_Ha_Hb_Hc_Habc()
+     call compute_kernels_el_Ha_Hb_Hc_Habc() ! for elastic case
    !call compute_kernels_el_m2() ! for test only, not used
     else!---------------------------------
     call compute_kernels_el() !lucas, need to incoparate into below
@@ -112,9 +112,15 @@
   real(kind=CUSTOM_REAL) :: dsxx,dsxz,dszz
   real(kind=CUSTOM_REAL) :: b_dsxx,b_dsxz,b_dszz
   real(kind=CUSTOM_REAL) :: rhol,mul,kappal
+!  real(kind=CUSTOM_REAL) :: rndx,rndy1,rndy2 !lucas
+
 
   ! Jacobian matrix and determinant
   double precision :: xixl,xizl,gammaxl,gammazl
+!  double precision :: rndmin, rndmax      ! lucas
+!  rndmin = -0.0001
+!  rndmax =  0.0001
+
 
   ! 1.lucas, to get kappa_k, mu_k, and rho_k at each iglob
   ! elastic kernels
@@ -147,6 +153,23 @@
             b_duz_dxi = b_duz_dxi + b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)
             b_dux_dgamma = b_dux_dgamma + b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)
             b_duz_dgamma = b_duz_dgamma + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)
+
+!                !------- adding noise to u* and u for mimicing the compression method
+!                call random_number(rndx)
+!                rndy1=rndmin + (rndmax - rndmin)*rndx
+!                call random_number(rndx)
+!                rndy2=rndmin + (rndmax - rndmin)*rndx
+!                !u*(m1)
+!                dux_dxi = dux_dxi + displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1)
+!                duz_dxi = duz_dxi + displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1)
+!                dux_dgamma = dux_dgamma + displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1)
+!                duz_dgamma = duz_dgamma + displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1)
+!                !u(m1) 
+!                b_dux_dxi = b_dux_dxi + b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy2)
+!                b_duz_dxi = b_duz_dxi + b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy2)
+!                b_dux_dgamma = b_dux_dgamma + b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy2)
+!                b_duz_dgamma = b_duz_dgamma + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy2)
+!                !--------------------------------------------------------------------------
     
           enddo
 
@@ -183,7 +206,7 @@
 
             kappa_k(iglob) = (dsxx + dszz) *  (b_dsxx + b_dszz)
             mu_k(iglob) = dsxx * b_dsxx + dszz * b_dszz + &
-                          2._CUSTOM_REAL * dsxz * b_dsxz - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k(iglob) !lucas, this should be 1/2
+                          2._CUSTOM_REAL * dsxz * b_dsxz - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k(iglob) ! lucas, here should be 4/9 not 1/3.
 
             !lucas added for approximate hessian--------------------------------------------------------- 
             !kappa_k(iglob) = (b_dsxx + b_dszz) *  (b_dsxx + b_dszz)
@@ -368,8 +391,9 @@
                          displ_elastic_m2,displ_elastic_m1,b_accel_elastic_m2,b_displ_elastic_m2, & !lucas
                          hprime_xx,hprime_zz,xix,xiz,gammax,gammaz, &
                          GPU_MODE,it,NSTEP,NSTEP_BETWEEN_COMPUTE_KERNELS, &
-                         no_backward_displ_buffer,no_backward_displ_buffer_fwd_du, &! lucas
-                         no_backward_accel_buffer_fwd_du,no_backward_displ_buffer_adj_du,& !lucas
+                         no_backward_displ_buffer,no_backward_displ_buffer_fwd_du, &! lucas 
+                         no_backward_accel_buffer_fwd_du,no_backward_displ_buffer_adj_du_s, & !lucas
+                         no_backward_displ_buffer_adj_du_m, & !lucas
                          rho_k,mu_k,kappa_k,rho_k_Ha,mu_k_Ha,kappa_k_Ha,rho_k_Hbm,mu_k_Hbm,kappa_k_Hbm, & !lucas
                          rho_k_Hbs,mu_k_Hbs,kappa_k_Hbs,& !lucas
                          rho_kl,mu_kl,kappa_kl,rhop_kl,beta_kl,alpha_kl,& !bulk_c_kl,bulk_beta_kl, &
@@ -422,9 +446,13 @@
   real(kind=CUSTOM_REAL) :: b_dux_dxl_Hbs, b_dux_dzl_Hbs,b_duz_dxl_Hbs,b_duz_dzl_Hbs 
   real(kind=CUSTOM_REAL) :: dsxx_Hbs,dsxz_Hbs,dszz_Hbs 
   real(kind=CUSTOM_REAL) :: b_dsxx_Hbs,b_dsxz_Hbs,b_dszz_Hbs 
-
+!  real(kind=CUSTOM_REAL) :: rndx,rndy1,rndy2,rndy3,rndy4,rndy5 !lucas
+ 
   ! Jacobian matrix and determinant
   double precision :: xixl,xizl,gammaxl,gammazl
+!  double precision :: rndmin, rndmax      ! lucas
+!  rndmin = -0.1 !0.1=10%, 0.01=1%, 0.001=0.1%, 0.0001=0.01%
+!  rndmax =  0.1
 
   ! 1.lucas, to get kappa_k, mu_k, and rho_k at each iglob
   ! elastic kernels
@@ -504,17 +532,56 @@
               (b_displ_elastic_m2(1,ibool(i,k,ispec))-b_displ_elastic(1,ibool(i,k,ispec)))*hprime_zz(j,k)
              b_duz_dgamma_Ha = b_duz_dgamma_Ha + &
               (b_displ_elastic_m2(2,ibool(i,k,ispec))-b_displ_elastic(2,ibool(i,k,ispec)))*hprime_zz(j,k)
+             
+!               !====================================================================================================
+!               call random_number(rndx)
+!               ! get a rondom number between [rndmin rndmax]
+!               rndy1=rndmin + (rndmax - rndmin)*rndx
+!               call random_number(rndx)
+!               rndy2=rndmin + (rndmax - rndmin)*rndx
+!               call random_number(rndx)
+!               rndy3=rndmin + (rndmax - rndmin)*rndx
+!               call random_number(rndx)
+!               rndy4=rndmin + (rndmax - rndmin)*rndx
+!               call random_number(rndx)
+!               rndy5=rndmin + (rndmax - rndmin)*rndx
 
-             endif
+               !------------------------------------------Ha
+               ! update u* and du for checking accurcy for mimicing field
+               ! compression method
+!               !u*
+!               dux_dxi_Ha = dux_dxi_Ha + &
+!               displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1) 
+!               duz_dxi_Ha = duz_dxi_Ha + &
+!               displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1)
+!               dux_dgamma_Ha = dux_dgamma_Ha + &
+!               displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1)
+!               duz_dgamma_Ha = duz_dgamma_Ha + &
+!               displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1) 
+               !------
+               !du  
+!               b_dux_dxi_Ha = b_dux_dxi_Ha + &
+!               (b_displ_elastic_m2(1,ibool(k,j,ispec))*(1+rndy2) - b_displ_elastic(1,ibool(k,j,ispec))*(1+rndy3))*hprime_xx(i,k)
+!              ! du=u(m+dm)-d(m)
+!               b_duz_dxi_Ha = b_duz_dxi_Ha + &
+!               (b_displ_elastic_m2(2,ibool(k,j,ispec))*(1+rndy2) - b_displ_elastic(2,ibool(k,j,ispec))*(1+rndy3))*hprime_xx(i,k)
+!               b_dux_dgamma_Ha = b_dux_dgamma_Ha + &
+!               (b_displ_elastic_m2(1,ibool(i,k,ispec))*(1+rndy2) - b_displ_elastic(1,ibool(i,k,ispec))*(1+rndy3))*hprime_zz(j,k)
+!               b_duz_dgamma_Ha = b_duz_dgamma_Ha + &
+!               (b_displ_elastic_m2(2,ibool(i,k,ispec))*(1+rndy2) - b_displ_elastic(2,ibool(i,k,ispec))*(1+rndy3))*hprime_zz(j,k)               
+               !-------------------------------------------------
+
+            endif  ! Ha
+
             !for Hbm=================================================
             !lucas, used for du*=u*_{m}(m2)-u*(m1), adjoint source for both are adjsrc(m1)
-            !lucas: here displ_elastic is changed to du* = no_backward_displ_buffer_adj_du (see read_forward_array.f90 in details)
+            !lucas: here displ_elastic is changed to du* = no_backward_displ_buffer_adj_du_m (see read_forward_array.f90 in details)
             if(Full_Hessian_by_Wavefield_Stored) then
             !du*
-            dux_dxi_Hbm = dux_dxi_Hbm + no_backward_displ_buffer_adj_du(1,ibool(k,j,ispec))*hprime_xx(i,k)
-            duz_dxi_Hbm = duz_dxi_Hbm + no_backward_displ_buffer_adj_du(2,ibool(k,j,ispec))*hprime_xx(i,k)
-            dux_dgamma_Hbm = dux_dgamma_Hbm + no_backward_displ_buffer_adj_du(1,ibool(i,k,ispec))*hprime_zz(j,k)
-            duz_dgamma_Hbm = duz_dgamma_Hbm + no_backward_displ_buffer_adj_du(2,ibool(i,k,ispec))*hprime_zz(j,k)
+            dux_dxi_Hbm = dux_dxi_Hbm + no_backward_displ_buffer_adj_du_m(1,ibool(k,j,ispec))*hprime_xx(i,k)
+            duz_dxi_Hbm = duz_dxi_Hbm + no_backward_displ_buffer_adj_du_m(2,ibool(k,j,ispec))*hprime_xx(i,k)
+            dux_dgamma_Hbm = dux_dgamma_Hbm + no_backward_displ_buffer_adj_du_m(1,ibool(i,k,ispec))*hprime_zz(j,k)
+            duz_dgamma_Hbm = duz_dgamma_Hbm + no_backward_displ_buffer_adj_du_m(2,ibool(i,k,ispec))*hprime_zz(j,k)
             !u(m1)
             b_dux_dxi_Hbm = b_dux_dxi_Hbm + no_backward_displ_buffer(1,ibool(k,j,ispec))*hprime_xx(i,k) ! b_displ_elastic
             b_duz_dxi_Hbm = b_duz_dxi_Hbm + no_backward_displ_buffer(2,ibool(k,j,ispec))*hprime_xx(i,k)
@@ -530,21 +597,47 @@
              (displ_elastic_m2(1,ibool(i,k,ispec))-displ_elastic(1,ibool(i,k,ispec)))*hprime_zz(j,k)
             duz_dgamma_Hbm=duz_dgamma_Hbm + &
              (displ_elastic_m2(2,ibool(i,k,ispec))-displ_elastic(2,ibool(i,k,ispec)))*hprime_zz(j,k)
+            
             !u(m1)
             b_dux_dxi_Hbm = b_dux_dxi_Hbm + b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k) !u(m1)
             b_duz_dxi_Hbm = b_duz_dxi_Hbm + b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)
             b_dux_dgamma_Hbm = b_dux_dgamma_Hbm + b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)
             b_duz_dgamma_Hbm = b_duz_dgamma_Hbm + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)
-            endif
+ 
+               !---------------------------------------------------Hbm
+!               ! update du* and u for check accuracy for mimicing field compression method 
+!               !du*
+!                dux_dxi_Hbm = dux_dxi_Hbm + &
+!               (displ_elastic_m2(1,ibool(k,j,ispec))*(1+rndy4)-displ_elastic(1,ibool(k,j,ispec))*(1+rndy1))*hprime_xx(i,k)
+!               !du*=u*_{m}(m2)-u*(m1), both with adjsrc(m1)
+!               duz_dxi_Hbm = duz_dxi_Hbm + & 
+!               (displ_elastic_m2(2,ibool(k,j,ispec))*(1+rndy4)-displ_elastic(2,ibool(k,j,ispec))*(1+rndy1))*hprime_xx(i,k)
+!               dux_dgamma_Hbm=dux_dgamma_Hbm + &
+!               (displ_elastic_m2(1,ibool(i,k,ispec))*(1+rndy4)-displ_elastic(1,ibool(i,k,ispec))*(1+rndy1))*hprime_zz(j,k)
+!               duz_dgamma_Hbm=duz_dgamma_Hbm + &
+!               (displ_elastic_m2(2,ibool(i,k,ispec))*(1+rndy4)-displ_elastic(2,ibool(i,k,ispec))*(1+rndy1))*hprime_zz(j,k)
+!               !u
+!               b_dux_dxi_Hbm = b_dux_dxi_Hbm + &
+!                               b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!                              !u(m1)
+!               b_duz_dxi_Hbm = b_duz_dxi_Hbm + &
+!                               b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!               b_dux_dgamma_Hbm = b_dux_dgamma_Hbm + &
+!                               b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)
+!               b_duz_dgamma_Hbm = b_duz_dgamma_Hbm + &
+!                               b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)
+!               !-------------------------------------------------------
+
+            endif !Hbm
 
             !for Hbs=================================================
             !lucas, used for d_{s}u*=u*_{s}(m1)-u*(m1), where adjsrc(m2) for u*_{s}(m1), and adjsrc(m1) for u*(m1)
             if(Full_Hessian_by_Wavefield_Stored) then ! lucas, need to do here
             !du*
-            dux_dxi_Hbs = dux_dxi_Hbs + no_backward_displ_buffer_adj_du(1,ibool(k,j,ispec))*hprime_xx(i,k)
-            duz_dxi_Hbs = duz_dxi_Hbs + no_backward_displ_buffer_adj_du(2,ibool(k,j,ispec))*hprime_xx(i,k)
-            dux_dgamma_Hbs = dux_dgamma_Hbs + no_backward_displ_buffer_adj_du(1,ibool(i,k,ispec))*hprime_zz(j,k)
-            duz_dgamma_Hbs = duz_dgamma_Hbs + no_backward_displ_buffer_adj_du(2,ibool(i,k,ispec))*hprime_zz(j,k)
+            dux_dxi_Hbs = dux_dxi_Hbs + no_backward_displ_buffer_adj_du_s(1,ibool(k,j,ispec))*hprime_xx(i,k)
+            duz_dxi_Hbs = duz_dxi_Hbs + no_backward_displ_buffer_adj_du_s(2,ibool(k,j,ispec))*hprime_xx(i,k)
+            dux_dgamma_Hbs = dux_dgamma_Hbs + no_backward_displ_buffer_adj_du_s(1,ibool(i,k,ispec))*hprime_zz(j,k)
+            duz_dgamma_Hbs = duz_dgamma_Hbs + no_backward_displ_buffer_adj_du_s(2,ibool(i,k,ispec))*hprime_zz(j,k)
             !u(m1)
             b_dux_dxi_Hbs = b_dux_dxi_Hbs + no_backward_displ_buffer(1,ibool(k,j,ispec))*hprime_xx(i,k) ! b_displ_elastic
             b_duz_dxi_Hbs = b_duz_dxi_Hbs + no_backward_displ_buffer(2,ibool(k,j,ispec))*hprime_xx(i,k)
@@ -564,10 +657,36 @@
             b_dux_dxi_Hbs = b_dux_dxi_Hbs + b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k) !u(m1)
             b_duz_dxi_Hbs = b_duz_dxi_Hbs + b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)
             b_dux_dgamma_Hbs = b_dux_dgamma_Hbs + b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)
-            b_duz_dgamma_Hbs = b_duz_dgamma_Hbs + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)
-            endif
+            b_duz_dgamma_Hbs = b_duz_dgamma_Hbs + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k) 
 
-            ! for Hc, the original version==========================================
+!               !--------------------------------------------Hbs
+!               ! update du* and u for check accuracy for mimicing field
+!               ! compression method 
+!               !du*
+!                dux_dxi_Hbs = dux_dxi_Hbs + &
+!               (displ_elastic_m1(1,ibool(k,j,ispec))*(1+rndy5)-displ_elastic(1,ibool(k,j,ispec))*(1+rndy1))*hprime_xx(i,k)
+!               !du*=u*_{s}(m2)-u*(m1)
+!               duz_dxi_Hbs = duz_dxi_Hbs + &
+!               (displ_elastic_m1(2,ibool(k,j,ispec))*(1+rndy5)-displ_elastic(2,ibool(k,j,ispec))*(1+rndy1))*hprime_xx(i,k)
+!               dux_dgamma_Hbs=dux_dgamma_Hbs + &
+!               (displ_elastic_m1(1,ibool(i,k,ispec))*(1+rndy5)-displ_elastic(1,ibool(i,k,ispec))*(1+rndy1))*hprime_zz(j,k)
+!               duz_dgamma_Hbs=duz_dgamma_Hbs + &
+!               (displ_elastic_m1(2,ibool(i,k,ispec))*(1+rndy5)-displ_elastic(2,ibool(i,k,ispec))*(1+rndy1))*hprime_zz(j,k)
+!               !u
+!               b_dux_dxi_Hbs = b_dux_dxi_Hbs + &
+!                               b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!                              !u(m1)
+!               b_duz_dxi_Hbs = b_duz_dxi_Hbs + &
+!                               b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!               b_dux_dgamma_Hbs = b_dux_dgamma_Hbs + &
+!                               b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)
+!               b_duz_dgamma_Hbs = b_duz_dgamma_Hbs + &
+!                               b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)
+!               !------------------------------------------------ 
+
+            endif !Hbs
+
+            ! for Hc, the original version========================================
             if(Full_Hessian_by_Wavefield_Stored) then
             !u*(m1)
             dux_dxi = dux_dxi + displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)
@@ -580,6 +699,7 @@
             b_dux_dgamma = b_dux_dgamma + no_backward_displ_buffer(1,ibool(i,k,ispec))*hprime_zz(j,k)
             b_duz_dgamma = b_duz_dgamma + no_backward_displ_buffer(2,ibool(i,k,ispec))*hprime_zz(j,k)
             else !lucas, CTD-SEM
+            !u*(m1)
             dux_dxi = dux_dxi + displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)
             duz_dxi = duz_dxi + displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)
             dux_dgamma = dux_dgamma + displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)
@@ -589,9 +709,34 @@
             b_duz_dxi = b_duz_dxi + b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)
             b_dux_dgamma = b_dux_dgamma + b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)
             b_duz_dgamma = b_duz_dgamma + b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)
-            endif
+
+!              !----------------------------------------------Hc
+!               ! update u* and u for check accuracy for mimicing field
+!               !u*
+!               dux_dxi = dux_dxi + &
+!               displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1)
+!               duz_dxi = duz_dxi + &
+!               displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy1)
+!               dux_dgamma = dux_dgamma + &
+!               displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1)
+!               duz_dgamma = duz_dgamma + &
+!               displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy1)
+!               !u(m1) 
+!               b_dux_dxi = b_dux_dxi + &
+!               b_displ_elastic(1,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!               b_duz_dxi = b_duz_dxi + &
+!               b_displ_elastic(2,ibool(k,j,ispec))*hprime_xx(i,k)*(1+rndy3)
+!               b_dux_dgamma = b_dux_dgamma + &
+!               b_displ_elastic(1,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)
+!               b_duz_dgamma = b_duz_dgamma + &
+!               b_displ_elastic(2,ibool(i,k,ispec))*hprime_zz(j,k)*(1+rndy3)            
+!              !------------------------------------------------
+
+            endif !Hc
+
+!           !=================================================================================================== 
            
-          enddo
+          enddo ! end k for GLL
 
           ! 1.2 lucas, to get xixl, xizl, gammaxl, gammazl  
           xixl = xix(i,j,ispec)
@@ -669,7 +814,7 @@
 
             kappa_k(iglob) = (dsxx + dszz) *  (b_dsxx + b_dszz)
             mu_k(iglob) = dsxx * b_dsxx + dszz * b_dszz + &
-                          2._CUSTOM_REAL * dsxz * b_dsxz - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k(iglob) !lucas, this should be 1/2
+                          2._CUSTOM_REAL * dsxz * b_dsxz - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k(iglob)
             !for Ha
             dsxx_Ha =  dux_dxl_Ha
             dsxz_Ha = HALF * (duz_dxl_Ha + dux_dzl_Ha)
@@ -681,7 +826,7 @@
 
             kappa_k_Ha(iglob) = (dsxx_Ha + dszz_Ha) *  (b_dsxx_Ha + b_dszz_Ha)
             mu_k_Ha(iglob) = dsxx_Ha * b_dsxx_Ha + dszz_Ha * b_dszz_Ha + &
-                          2._CUSTOM_REAL * dsxz_Ha * b_dsxz_Ha - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Ha(iglob) !lucas, this should be 1/2
+                          2._CUSTOM_REAL * dsxz_Ha * b_dsxz_Ha - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Ha(iglob)
             !for Hbm
             dsxx_Hbm =  dux_dxl_Hbm
             dsxz_Hbm = HALF * (duz_dxl_Hbm + dux_dzl_Hbm)
@@ -693,7 +838,7 @@
 
             kappa_k_Hbm(iglob) = (dsxx_Hbm + dszz_Hbm) *  (b_dsxx_Hbm + b_dszz_Hbm)
             mu_k_Hbm(iglob) = dsxx_Hbm * b_dsxx_Hbm + dszz_Hbm * b_dszz_Hbm + &
-                          2._CUSTOM_REAL * dsxz_Hbm * b_dsxz_Hbm - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Hbm(iglob) !lucas, this should be 1/2
+                          2._CUSTOM_REAL * dsxz_Hbm * b_dsxz_Hbm - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Hbm(iglob)
 
             !for Hbs
             dsxx_Hbs =  dux_dxl_Hbs
@@ -706,7 +851,7 @@
 
             kappa_k_Hbs(iglob) = (dsxx_Hbs + dszz_Hbs) *  (b_dsxx_Hbs + b_dszz_Hbs)
             mu_k_Hbs(iglob) = dsxx_Hbs * b_dsxx_Hbs + dszz_Hbs * b_dszz_Hbs + &
-                          2._CUSTOM_REAL * dsxz_Hbs * b_dsxz_Hbs - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Hbs(iglob) !lucas, this should be 1/2
+                          2._CUSTOM_REAL * dsxz_Hbs * b_dsxz_Hbs - 1._CUSTOM_REAL/3._CUSTOM_REAL * kappa_k_Hbs(iglob)
 
           else
             ! SH (membrane) waves
@@ -731,17 +876,20 @@
                            HALF*(dux_dzl+duz_dxl)*b_duz_dzl)
             c55_k(iglob) = 4*HALF*(dux_dzl+duz_dxl)*HALF*(b_dux_dzl+b_duz_dxl)
           endif
-        enddo;enddo
-      endif
-    enddo
+        enddo;enddo ! end i, j
+      endif ! end, elastic 
+    enddo ! end nspec
 
-    do iglob = 1,nglob ! lucas, here Hc, Ha, Hb are used in stored method
+    do iglob = 1,nglob ! lucas, here Hc, Ha, Hb are used in stored method.
        !lucas add initialize
        rho_k(iglob)=0._CUSTOM_REAL
        rho_k_Ha(iglob)=0._CUSTOM_REAL
        rho_k_Hbm(iglob)=0._CUSTOM_REAL
        rho_k_Hbs(iglob)=0._CUSTOM_REAL
-       
+       !lucas, the accelaration fields need to be updated here for density kernel caculations in case for imitating the
+       !compression method by adding random noise. usualy do not need to do this
+       !since only the K_alpha or K_beta are shown in publications, BBB
+
        ! for Hc, the same for stored-method and CTD-SEM
        !rho_k(iglob) =  accel_elastic(1,iglob)*b_displ_elastic(1,iglob) + accel_elastic(2,iglob)*b_displ_elastic(2,iglob) ! lucas, where 1 means x, and 2 means z component.
        rho_k(iglob) =     displ_elastic(1,iglob)*b_accel_elastic(1,iglob) + displ_elastic(2,iglob)*b_accel_elastic(2,iglob) ! lucas, b_accel_elastic = read from disk or by b_simulation
@@ -750,11 +898,11 @@
        rho_k_Ha(iglob) =  displ_elastic(1,iglob)*no_backward_accel_buffer_fwd_du(1,iglob) + &  !lucas, u*, du_accel
                           displ_elastic(2,iglob)*no_backward_accel_buffer_fwd_du(2,iglob)
        ! for Hbm (u,du*)
-       rho_k_Hbm(iglob) =  no_backward_displ_buffer_adj_du(1,iglob)*b_accel_elastic(1,iglob) + & !lucas, du*, u_accel
-                          no_backward_displ_buffer_adj_du(2,iglob)*b_accel_elastic(2,iglob)  
+       rho_k_Hbm(iglob) =  no_backward_displ_buffer_adj_du_m(1,iglob)*b_accel_elastic(1,iglob) + & !lucas, du*, u_accel
+                          no_backward_displ_buffer_adj_du_m(2,iglob)*b_accel_elastic(2,iglob)  
        ! for Hbs (u,du*)
-       rho_k_Hbs(iglob) =  no_backward_displ_buffer_adj_du(1,iglob)*b_accel_elastic(1,iglob) + & !lucas, du*, u_accel
-                          no_backward_displ_buffer_adj_du(2,iglob)*b_accel_elastic(2,iglob)  
+       rho_k_Hbs(iglob) =  no_backward_displ_buffer_adj_du_s(1,iglob)*b_accel_elastic(1,iglob) + & !lucas, du*, u_accel
+                          no_backward_displ_buffer_adj_du_s(2,iglob)*b_accel_elastic(2,iglob)  
        else !lucas, CTD-SEM
        ! for Ha (du,u*)
        rho_k_Ha(iglob) =  displ_elastic(1,iglob)*(b_accel_elastic_m2(1,iglob)-b_accel_elastic(1,iglob)) + &  !lucas, u*, du_accel
@@ -903,15 +1051,13 @@
             
             ! each items of the three below indicate each row of the Hc, where alpha_kl_Hc indicates the second row (Xie et al, GJI,2020)
             ! lucas,(rhoext, vpext, vsext) and (rhoext_m2, vpext_m2, vsext_m2) should > 0. 
-            if(rhoext(i,j,ispec)>0 .and. vpext(i,j,ispec)>0 .and. vsext(i,j,ispec)>0) then
+            if(rhoext(i,j,ispec)>0 .and. vpext(i,j,ispec)>0 .and. vsext(i,j,ispec)>0) then ! lucas. only used for reading tomography from external files
             rhop_kl_Hc(i,j,ispec) = (1/rhoext(i,j,ispec))*alpha_kl(i,j,ispec)*(vpext_m2(i,j,ispec) - vpext(i,j,ispec)) + &
                                     (1/rhoext(i,j,ispec))*beta_kl(i,j,ispec)*(vsext_m2(i,j,ispec) - vsext(i,j,ispec))
-            beta_kl_Hc(i,j,ispec) = (1/rhoext(i,j,ispec))*beta_kl(i,j,ispec)*(rhoext_m2(i,j,ispec) - rhoext(i,j,ispec)) + &
-                                    (1/vsext(i,j,ispec))*beta_kl(i,j,ispec)*(vsext_m2(i,j,ispec) - vsext(i,j,ispec)) !lucas, the third row in the Hc equation
-            
-            alpha_kl_Hc(i,j,ispec)= (1/rhoext(i,j,ispec))*alpha_kl(i,j,ispec)*(rhoext_m2(i,j,ispec) - rhoext(i,j,ispec)) + &
-                                    (1/vpext(i,j,ispec))*alpha_kl(i,j,ispec)*(vpext_m2(i,j,ispec)-vpext(i,j,ispec)) !!lucas, the second row in the Hc equation
-            
+            beta_kl_Hc(i,j,ispec) = (1/rhoext(i,j,ispec))*alpha_kl(i,j,ispec)*(rhoext_m2(i,j,ispec) - rhoext(i,j,ispec)) + &
+                                    (1/vpext(i,j,ispec))*alpha_kl(i,j,ispec)*(vpext_m2(i,j,ispec)-vpext(i,j,ispec))
+            alpha_kl_Hc(i,j,ispec) =(1/rhoext(i,j,ispec))*beta_kl(i,j,ispec)*(rhoext_m2(i,j,ispec) - rhoext(i,j,ispec)) + &
+                                    (1/vsext(i,j,ispec))*beta_kl(i,j,ispec)*(vsext_m2(i,j,ispec) - vsext(i,j,ispec))
             else
             call stop_the_code('error: Vp Vs and Rho should be large than zero, i.e. for elastic only in this implementation,lucas')
             endif
@@ -1675,7 +1821,7 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine compute_kernels_Hessian() !lucas, not used
+  subroutine compute_kernels_Hessian() !lucas, used for Yang Luo's P1 and P2
 
   use constants, only: CUSTOM_REAL,NGLLX,NGLLZ
 
@@ -1701,9 +1847,9 @@
       ! approximate Hessians
       ! pre-computes contributions on global points
       do iglob = 1,nglob
-        rhorho_el_Hessian_temp1(iglob) = b_accel_elastic(1,iglob)*b_accel_elastic(1,iglob) + &
+        rhorho_el_Hessian_temp1(iglob) = b_accel_elastic(1,iglob)*b_accel_elastic(1,iglob) + &  ! P1=a times a
                                          b_accel_elastic(2,iglob)*b_accel_elastic(2,iglob)
-        rhorho_el_Hessian_temp2(iglob) = accel_elastic(1,iglob)*b_accel_elastic(1,iglob) + &
+        rhorho_el_Hessian_temp2(iglob) = accel_elastic(1,iglob)*b_accel_elastic(1,iglob) + &   !P2=a* times a
                                          accel_elastic(2,iglob)*b_accel_elastic(2,iglob)
       enddo
 
